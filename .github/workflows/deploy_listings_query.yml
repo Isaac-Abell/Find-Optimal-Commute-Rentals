@@ -1,0 +1,81 @@
+name: Deploy Lambda Listings Query
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lambda/listings.py'
+      - 'lambda/config.py'
+      - 'lambda/db.py'
+      - 'lambda/commute.py'
+      - 'lambda/db_update.py'
+      - 'lambda/requirements.txt'
+      - '.github/workflows/deploy_listings_query.yml'
+
+jobs:
+  deploy:
+    name: Deploy Listings Lambda Function
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r lambda/requirements.txt
+
+      # 4. Package Lambda code
+      - name: Package Lambda
+        run: |
+          rm -f listings_lambda.zip
+          mkdir -p lambda_package
+          # Copy all Python files individually
+          cp lambda/listings.py lambda_package/
+          cp lambda/config.py lambda_package/
+          cp lambda/db.py lambda_package/
+          cp lambda/commute.py lambda_package/
+          cp lambda/db_update.py lambda_package/
+          cd lambda_package
+          zip -r ../listings_lambda.zip . -x "*__pycache__*"
+
+      # 5. Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # 6. Set Lambda environment variables
+      - name: Set Lambda environment variables
+        run: |
+          FUNCTION_NAME="listings-query"
+          aws lambda update-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --environment "Variables={
+              DB_USER=${{ secrets.DB_USER }},
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }},
+              DB_HOST=${{ secrets.DB_HOST }},
+              DB_NAME=${{ secrets.DB_NAME }},
+              DB_PORT=${{ secrets.DB_PORT }},
+              GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            }"
+
+      # 7. Deploy Lambda code
+      - name: Update Lambda function code
+        run: |
+          FUNCTION_NAME="listings-query"
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://listings_lambda.zip
