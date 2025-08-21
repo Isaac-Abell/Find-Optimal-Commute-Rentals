@@ -82,24 +82,24 @@ def lambda_handler(event, context):
     filtered_df.loc['id'] = range(1, len(filtered_df) + 1)
 
     print(filtered_df.iloc[0].to_dict())
-    # with engine.begin() as conn:
+    with engine.begin() as conn:
 
-    #     filtered_df.to_sql(
-    #         'listings',        # table name
-    #         conn,
-    #         schema='public',   # explicitly set schema
-    #         if_exists='replace',
-    #         index=False
-    #     )
+        filtered_df.to_sql(
+            'listings',        # table name
+            conn,
+            schema='public',   # explicitly set schema
+            if_exists='replace',
+            index=False
+        )
 
-    #     # Add primary key constraint safely
-    #     try:
-    #         conn.execute(text("""
-    #             ALTER TABLE public.listings
-    #             ADD PRIMARY KEY (id);
-    #         """))
-    #     except Exception:
-    #         # Might fail if primary key already exists or duplicates exist; ignore
-    #         pass
+        # Add primary key constraint safely
+        try:
+            conn.execute(text("""
+                ALTER TABLE public.listings
+                ADD PRIMARY KEY (id);
+            """))
+        except Exception:
+            # Might fail if primary key already exists or duplicates exist; ignore
+            pass
 
     print(f"Database replaced with {len(filtered_df)} rental listings.")
