@@ -18,6 +18,7 @@ def lambda_handler(event, context):
     all_properties = []
 
     for city in CITY_CENTERS.keys():
+        print(f"Scraping listings for {city}...")
         try:
             df = scrape_property(
                 location=city,
@@ -81,7 +82,7 @@ def lambda_handler(event, context):
     ]
     filtered_df.loc['id'] = range(1, len(filtered_df) + 1)
 
-    print(filtered_df.iloc[0].to_dict())
+    print("adding tables to database")
     with engine.begin() as conn:
 
         filtered_df.to_sql(
