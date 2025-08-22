@@ -1,23 +1,12 @@
-import pandas as pd
-import googlemaps
-from sqlalchemy import select
-from db import engine
-from config import listings
-from commute import nearest_region, compute_commute_times
-from config import GOOGLE_API_KEY
-
 def lambda_handler(event, context):
-    """Fetch listings near a user's address and rank them by commute time."""
-    user_address = event['user_address']  # required
+    """Fetch listings near a user's address and rank them by commute time (after paging)."""
+    user_address = event['user_address']
     commute_type = event.get('commute_type', 'WALK')
     page = event.get('page', 1)
     page_size = event.get('page_size', 20)
-    filters = event.get('filters', None)
-    sort_by = event.get('sort_by', None)
-    ascending = event.get('ascending', None)
-    filters = filters or {}
-    sort_by = sort_by or ["commute_minutes"]
-    ascending = ascending or [True] * len(sort_by)
+    filters = event.get('filters', {})
+    sort_by = event.get('sort_by', ['list_price'])  # now sorting defaults to price
+    ascending = event.get('ascending', [True] * len(sort_by))
 
     # --- Step 1: Geocode ---
     gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
@@ -32,7 +21,7 @@ def lambda_handler(event, context):
     # --- Step 2: Nearest city ---
     closest_city, _ = nearest_region(user_lat, user_lon)
 
-    # --- Step 3: Query database ---
+    # --- Step 3: Query database with filters ---
     query = select(listings).where(listings.c.region == closest_city)
     if "min_price" in filters:
         query = query.where(listings.c.list_price >= filters["min_price"])
@@ -51,23 +40,26 @@ def lambda_handler(event, context):
     if df.empty:
         return pd.DataFrame()
 
-    # --- Step 4: Compute commute ---
-    origins_coords = list(zip(df['latitude'], df['longitude']))
-    df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
-    df = df[df['commute_seconds'].notnull()]
-    df['commute_minutes'] = df['commute_seconds'] / 60
-
-    # --- Step 5: Sorting ---
+    # --- Step 4: Sort by non-commute columns ---
     for col, asc_flag in reversed(list(zip(sort_by, ascending))):
         if col in df.columns:
             df = df.sort_values(col, ascending=asc_flag, kind='mergesort')
 
-    # --- Step 6: Pagination ---
+    # --- Step 5: Pagination (before commute computation) ---
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     df_page = df.iloc[start_idx:end_idx]
 
+    # --- Step 6: Compute commute times only for this subset ---
+    origins_coords = list(zip(df_page['latitude'], df_page['longitude']))
+    df_page['commute_seconds'] = compute_commute_times(
+        origins_coords, (user_lat, user_lon), travel_type=commute_type
+    )
+    df_page = df_page[df_page['commute_seconds'].notnull()]
+    df_page['commute_minutes'] = df_page['commute_seconds'] / 60
+
+    # --- Step 7: Return subset with commute info ---
     columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
                'full_baths', 'half_baths', 'property_url', 'commute_minutes',
                'latitude', 'longitude']
-    return df_page[columns]
+    return df_page[columns].to_dict(orient="records")
