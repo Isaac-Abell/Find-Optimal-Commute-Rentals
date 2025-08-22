@@ -64,6 +64,12 @@ jobs:
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --environment "$ENV_VARS" \
             --region ${{ env.AWS_REGION }}
+      - name: Wait for Lambda configuration update
+        run: |
+          echo "Waiting for Lambda configuration update to complete..."
+          aws lambda wait function-updated \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --region ${{ env.AWS_REGION }}
 
       - name: Update AWS Lambda function
         run: |
