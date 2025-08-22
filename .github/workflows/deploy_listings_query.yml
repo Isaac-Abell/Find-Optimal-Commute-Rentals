@@ -32,7 +32,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # --- Package & publish Layer 1 (Core) ---
+      # --- Publish Layer 1 (Core) ---
       - name: Publish Layer 1 (Core)
         id: publish_layer1
         run: |
@@ -48,7 +48,7 @@ jobs:
             --output text)
           echo "LAYER1_ARN=$LAYER1_ARN" >> $GITHUB_ENV
 
-      # --- Package & publish Layer 2 (Aux) ---
+      # --- Publish Layer 2 (Aux) ---
       - name: Publish Layer 2 (Aux)
         id: publish_layer2
         run: |
@@ -64,7 +64,7 @@ jobs:
             --output text)
           echo "LAYER2_ARN=$LAYER2_ARN" >> $GITHUB_ENV
 
-      # --- Package Lambda code ---
+      # --- Package Lambda function ---
       - name: Package Lambda function
         run: |
           rm -f listings_lambda.zip
@@ -76,7 +76,7 @@ jobs:
           cd lambda_package
           zip -r ../listings_lambda.zip . -x "*__pycache__*"
 
-      # --- Deploy Lambda with automatic wait ---
+      # --- Deploy Lambda safely ---
       - name: Deploy Lambda function with layers
         run: |
           FUNCTION_NAME="listings-query"
@@ -87,10 +87,13 @@ jobs:
             --zip-file fileb://listings_lambda.zip \
             --publish
 
-          # Update layers
+          # Wait until Lambda is fully updated
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+
+          # Update configuration/layers
           aws lambda update-function-configuration \
             --function-name "$FUNCTION_NAME" \
             --layers $LAYER1_ARN $LAYER2_ARN
 
-          # Wait until the Lambda is fully updated
+          # Wait again to ensure Lambda is fully active
           aws lambda wait function-updated --function-name "$FUNCTION_NAME"
