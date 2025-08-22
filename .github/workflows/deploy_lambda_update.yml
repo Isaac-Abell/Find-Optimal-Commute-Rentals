@@ -7,7 +7,6 @@ on:
     paths:
       - 'update_db/**'
 
-# Permissions for the actions to interact with AWS
 permissions:
   id-token: write
   contents: read
@@ -17,6 +16,7 @@ env:
   ECR_REPOSITORY: rental-listings-updater
   LAMBDA_FUNCTION_NAME: rental-listings-updater-docker
   S3_BUCKET_NAME: commute-rental-listings
+  SECRETS_MANAGER_NAME: commute-secrets
 
 jobs:
   deploy:
@@ -48,7 +48,24 @@ jobs:
           docker build -t ${{ env.ECR_URI }}:${{ env.IMAGE_TAG }} -f update_db/Dockerfile .
           docker push ${{ env.ECR_URI }}:${{ env.IMAGE_TAG }}
 
-      - name: Update AWS Lambda function code
+      - name: Retrieve Secrets and Update Lambda Environment
+        run: |
+          # Get the secret string from Secrets Manager and parse it as JSON
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id ${{ env.SECRETS_MANAGER_NAME }} \
+            --query SecretString \
+            --output text)
+
+          # Use a tool like `jq` to create the --environment argument
+          ENV_VARS=$(echo "$SECRET_JSON" | jq -c '{"Variables": .}')
+
+          # Update the Lambda function's configuration with the environment variables
+          aws lambda update-function-configuration \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --environment "$ENV_VARS" \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Update AWS Lambda function
         run: |
           aws lambda update-function-code \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
