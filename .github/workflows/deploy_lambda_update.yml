@@ -37,7 +37,7 @@ jobs:
         run: |
           rm -rf lambda_layer1
           mkdir -p lambda_layer1/python/lib/python3.13/site-packages
-          pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy
+          pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy homeharvest
           cd lambda_layer1
           zip -r ../lambda_layer1.zip .
           cd ..
@@ -55,7 +55,7 @@ jobs:
         run: |
           rm -rf lambda_layer2
           mkdir -p lambda_layer2/python/lib/python3.13/site-packages
-          pip install --target=lambda_layer2/python/lib/python3.13/site-packages sqlalchemy psycopg2-binary geopy googlemaps homeharvest
+          pip install --target=lambda_layer2/python/lib/python3.13/site-packages sqlalchemy psycopg2-binary geopy googlemaps
           cd lambda_layer2
           zip -r ../lambda_layer2.zip .
           cd ..
