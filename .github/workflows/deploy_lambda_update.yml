@@ -51,12 +51,12 @@ jobs:
           REGION=us-east-1
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/rental-listings-updater:latest"
 
-          # Create function (new)
+          # Create Lambda using only required parameters
           aws lambda create-function \
             --function-name "$FUNCTION_NAME" \
             --package-type Image \
             --code ImageUri="$IMAGE_URI" \
-            --role ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
+            --role "${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}"
 
-          # Wait until Lambda is fully created
+          # Wait until Lambda exists
           aws lambda wait function-exists --function-name "$FUNCTION_NAME"
