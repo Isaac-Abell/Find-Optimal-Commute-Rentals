@@ -4,6 +4,7 @@ from sqlalchemy import select
 from db import engine
 from config import listings
 from commute import nearest_region, compute_commute_times
+from config import GOOGLE_API_KEY
 
 def lambda_handler(event, context):
     """Fetch listings near a user's address and rank them by commute time."""
@@ -19,7 +20,7 @@ def lambda_handler(event, context):
     ascending = ascending or [True] * len(sort_by)
 
     # --- Step 1: Geocode ---
-    gmaps = googlemaps.Client(key=None)  # Will automatically pick up env var
+    gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
     try:
         geocode_result = gmaps.geocode(user_address)
         user_location = geocode_result[0]['geometry']['location']
