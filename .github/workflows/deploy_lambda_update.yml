@@ -31,7 +31,39 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # Package Lambda function
+      # --- Package & publish Layer 1 (Core) ---
+      - name: Publish Layer 1 (Core)
+        id: publish_layer1
+        run: |
+          rm -rf lambda_layer1
+          mkdir -p lambda_layer1/python
+          pip install --target=lambda_layer1/python pandas numpy
+          zip -r lambda_layer1.zip lambda_layer1
+          LAYER1_ARN=$(aws lambda publish-layer-version \
+            --layer-name rental-listings-updater-dependencies-core \
+            --zip-file fileb://lambda_layer1.zip \
+            --compatible-runtimes python3.13 \
+            --query LayerVersionArn \
+            --output text)
+          echo "LAYER1_ARN=$LAYER1_ARN" >> $GITHUB_ENV
+
+      # --- Package & publish Layer 2 (Aux) ---
+      - name: Publish Layer 2 (Aux)
+        id: publish_layer2
+        run: |
+          rm -rf lambda_layer2
+          mkdir -p lambda_layer2/python
+          pip install --target=lambda_layer2/python sqlalchemy psycopg2-binary geopy googlemaps
+          zip -r lambda_layer2.zip lambda_layer2
+          LAYER2_ARN=$(aws lambda publish-layer-version \
+            --layer-name rental-listings-updater-dependencies-aux \
+            --zip-file fileb://lambda_layer2.zip \
+            --compatible-runtimes python3.13 \
+            --query LayerVersionArn \
+            --output text)
+          echo "LAYER2_ARN=$LAYER2_ARN" >> $GITHUB_ENV
+
+      # --- Package Lambda code ---
       - name: Package Lambda function
         run: |
           rm -f lambda_function.zip
@@ -42,20 +74,14 @@ jobs:
           cd lambda_package
           zip -r ../lambda_function.zip . -x "*__pycache__*"
 
-      # Update Lambda code
-      - name: Update Lambda code
+      # --- Deploy Lambda ---
+      - name: Deploy Lambda function with layers
         run: |
           FUNCTION_NAME="rental-listings-updater"
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
-            --zip-file fileb://lambda_function.zip
-
-          # Wait until the code update finishes
-          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
-
-      # Update Lambda configuration with layers
-      - name: Update Lambda layers
-        run: |
-          aws lambda update-function-configuration \
+            --zip-file fileb://lambda_function.zip \
+            --publish \
+            && aws lambda update-function-configuration \
             --function-name "$FUNCTION_NAME" \
             --layers $LAYER1_ARN $LAYER2_ARN
