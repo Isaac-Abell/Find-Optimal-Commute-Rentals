@@ -76,7 +76,7 @@ jobs:
           # Install HomeHarvest without pulling pandas/numpy
           pip install --target=lambda_layer3/python/lib/python3.13/site-packages --no-deps homeharvest
           # Manually install other small dependencies HomeHarvest needs
-          pip install --target=lambda_layer3/python/lib/python3.13/site-packages requests tenacity pydantic annotated-types typing-extensions typing-inspection pydantic-core
+          pip install --target=lambda_layer3/python/lib/python3.13/site-packages requests tenacity pydantic annotated-types typing-extensions typing-inspection pydantic-core tls-client
           # Clean up unnecessary files to save space
           cd lambda_layer3
           find . -name "__pycache__" -type d -exec rm -rf {} +
