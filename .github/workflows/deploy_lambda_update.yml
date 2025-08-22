@@ -51,22 +51,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # 6. Set Lambda environment variables (DB info + Google API key)
-      - name: Set Lambda environment variables
-        run: |
-          FUNCTION_NAME="rental-listings-updater"
-          aws lambda update-function-configuration \
-            --function-name $FUNCTION_NAME \
-            --environment "Variables={
-              DB_USER=${{ secrets.DB_USER }},
-              DB_PASSWORD=${{ secrets.DB_PASSWORD }},
-              DB_HOST=${{ secrets.DB_HOST }},
-              DB_NAME=${{ secrets.DB_NAME }},
-              DB_PORT=${{ secrets.DB_PORT }},
-              GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-            }"
-
-      # 7. Deploy Lambda code
+      # 6. Deploy Lambda code
       - name: Update Lambda function code
         run: |
           FUNCTION_NAME="rental-listings-updater"
