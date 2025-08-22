@@ -5,10 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'lambda/config.py'
-      - 'lambda/db.py'
-      - 'lambda/Dockerfile'
-      - 'lambda/rental_listings_updater.py'
+      - 'lambda/**'
       - '.github/workflows/deploy_lambda_update.yml'
 
 jobs:
@@ -49,17 +46,28 @@ jobs:
           # Push image to ECR
           docker push $REPO_URI:$IMAGE_TAG
 
-      - name: Deploy Lambda from Docker image
+      - name: Deploy Lambda using container image
+        env:
+          FUNCTION_NAME: rental-listings-updater
         run: |
-          FUNCTION_NAME="rental-listings-updater"
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REGION=us-east-1
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/rental-listings-updater:latest"
 
-          # Update Lambda to use the container image
-          aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI"
+          # Check if function exists
+          if aws lambda get-function --function-name "$FUNCTION_NAME"; then
+            echo "Updating existing Lambda function with container image..."
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --image-uri "$IMAGE_URI"
+          else
+            echo "Creating new Lambda function with container image..."
+            aws lambda create-function \
+              --function-name "$FUNCTION_NAME" \
+              --package-type Image \
+              --code ImageUri="$IMAGE_URI" \
+              --role ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
+          fi
 
-          # Wait until Lambda is active
+          # Wait until Lambda is fully updated
           aws lambda wait function-updated --function-name "$FUNCTION_NAME"
