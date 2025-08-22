@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir \
     psycopg2-binary \
     geopy \
     googlemaps \
-    tls_client \
+    tls-client \
     homeharvest \
     requests \
     pydantic \
