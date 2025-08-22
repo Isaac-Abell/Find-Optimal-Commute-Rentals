@@ -9,8 +9,6 @@ on:
       - 'lambda/config.py'
       - 'lambda/db.py'
       - 'lambda/commute.py'
-      - 'lambda/db_update.py'
-      - 'lambda/requirements.txt'
       - '.github/workflows/deploy_listings_query.yml'
 
 jobs:
@@ -45,7 +43,6 @@ jobs:
           cp lambda/config.py lambda_package/
           cp lambda/db.py lambda_package/
           cp lambda/commute.py lambda_package/
-          cp lambda/db_update.py lambda_package/
           cd lambda_package
           zip -r ../listings_lambda.zip . -x "*__pycache__*"
 
