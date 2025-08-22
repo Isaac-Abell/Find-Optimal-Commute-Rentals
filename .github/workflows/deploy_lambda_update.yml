@@ -12,9 +12,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy Lambda Function
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -31,94 +29,67 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # --- Publish Layer 1 (Core) ---
-      - name: Publish Layer 1 (Core)
-        id: publish_layer1
+      # --- Layer 1: pandas + numpy ---
+      - name: Package Layer 1 (Core)
         run: |
           rm -rf lambda_layer1
           mkdir -p lambda_layer1/python/lib/python3.13/site-packages
           pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy
           cd lambda_layer1
+          find . -name "__pycache__" -type d -exec rm -rf {} +
           zip -r ../lambda_layer1.zip .
           cd ..
           LAYER1_ARN=$(aws lambda publish-layer-version \
-            --layer-name rental-listings-updater-dependencies-core \
+            --layer-name rental-listings-updater-core \
             --zip-file fileb://lambda_layer1.zip \
             --compatible-runtimes python3.13 \
             --query LayerVersionArn \
             --output text)
           echo "LAYER1_ARN=$LAYER1_ARN" >> $GITHUB_ENV
 
-      # --- Publish Layer 2 (Aux) ---
-      - name: Publish Layer 2 (Aux)
-        id: publish_layer2
+      # --- Layer 2: All other dependencies + HomeHarvest ---
+      - name: Package Layer 2 (Aux + HomeHarvest)
         run: |
           rm -rf lambda_layer2
           mkdir -p lambda_layer2/python/lib/python3.13/site-packages
-          pip install --target=lambda_layer2/python/lib/python3.13/site-packages sqlalchemy psycopg2-binary geopy googlemaps
+          pip install --target=lambda_layer2/python/lib/python3.13/site-packages \
+            sqlalchemy psycopg2-binary geopy googlemaps \
+            homeharvest tls-client requests tenacity \
+            pydantic annotated-types typing-extensions typing-inspection pydantic-core
           cd lambda_layer2
+          find . -name "__pycache__" -type d -exec rm -rf {} +
+          find . -name "*.dist-info" -type d -exec rm -rf {} +
           zip -r ../lambda_layer2.zip .
           cd ..
           LAYER2_ARN=$(aws lambda publish-layer-version \
-            --layer-name rental-listings-updater-dependencies-aux \
+            --layer-name rental-listings-updater-aux \
             --zip-file fileb://lambda_layer2.zip \
             --compatible-runtimes python3.13 \
             --query LayerVersionArn \
             --output text)
           echo "LAYER2_ARN=$LAYER2_ARN" >> $GITHUB_ENV
-      # --- Layer 3: HomeHarvest + dependencies (excluding pandas/numpy) ---
-      - name: Package Layer 3 (HomeHarvest)
-        run: |
-          rm -rf lambda_layer3
-          mkdir -p lambda_layer3/python/lib/python3.13/site-packages
-          # Install HomeHarvest without pulling pandas/numpy
-          pip install --target=lambda_layer3/python/lib/python3.13/site-packages --no-deps homeharvest
-          # Manually install other small dependencies HomeHarvest needs
-          pip install --target=lambda_layer3/python/lib/python3.13/site-packages requests tenacity pydantic annotated-types typing-extensions typing-inspection pydantic-core tls-client
-          # Clean up unnecessary files to save space
-          cd lambda_layer3
-          find . -name "__pycache__" -type d -exec rm -rf {} +
-          find . -name "*.dist-info" -type d -exec rm -rf {} +
-          zip -r ../lambda_layer3.zip .
-          cd ..
-          LAYER3_ARN=$(aws lambda publish-layer-version \
-            --layer-name rental-listings-updater-homeharvest \
-            --zip-file fileb://lambda_layer3.zip \
-            --compatible-runtimes python3.13 \
-            --query LayerVersionArn \
-            --output text)
-          echo "LAYER3_ARN=$LAYER3_ARN" >> $GITHUB_ENV
-
 
       # --- Package Lambda function ---
       - name: Package Lambda function
         run: |
           rm -f lambda_function.zip
           mkdir -p lambda_package
-          cp -r lambda/config.py lambda_package/
-          cp -r lambda/rental_listings_updater.py lambda_package/
-          cp -r lambda/db.py lambda_package/
+          cp lambda/config.py lambda_package/
+          cp lambda/rental_listings_updater.py lambda_package/
+          cp lambda/db.py lambda_package/
           cd lambda_package
           zip -r ../lambda_function.zip . -x "*__pycache__*"
 
       # --- Deploy Lambda safely ---
-      - name: Deploy Lambda function with layers
+      - name: Deploy Lambda function
         run: |
           FUNCTION_NAME="rental-listings-updater"
-
-          # Update code
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --zip-file fileb://lambda_function.zip \
             --publish
-
-          # Wait until Lambda is fully updated
           aws lambda wait function-updated --function-name "$FUNCTION_NAME"
-
-          # Update configuration/layers
           aws lambda update-function-configuration \
             --function-name "$FUNCTION_NAME" \
-            --layers $LAYER1_ARN $LAYER2_ARN $LAYER3_ARN
-
-          # Wait again to ensure Lambda is fully active
+            --layers $LAYER1_ARN $LAYER2_ARN
           aws lambda wait function-updated --function-name "$FUNCTION_NAME"
