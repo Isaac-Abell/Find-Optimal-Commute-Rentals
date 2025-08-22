@@ -36,12 +36,20 @@ jobs:
       # 4. Package Lambda code
       - name: Package Lambda
         run: |
+          rm -f lambda_function.zip
           mkdir -p lambda_package
+
+          # Copy your code
           cp -r lambda/config.py lambda_package/
           cp -r lambda/rental_listings_updater.py lambda_package/
           cp -r lambda/db.py lambda_package/
+
+          # Install dependencies into the package folder
+          pip install --target=lambda_package -r lambda/requirements.txt
+
+          # Zip everything
           cd lambda_package
-          zip -r ../lambda_function.zip .
+          zip -r ../lambda_function.zip . -x "*__pycache__*"
 
       # 5. Configure AWS credentials
       - name: Configure AWS credentials

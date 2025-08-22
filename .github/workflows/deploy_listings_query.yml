@@ -38,11 +38,17 @@ jobs:
         run: |
           rm -f listings_lambda.zip
           mkdir -p lambda_package
-          # Copy all Python files individually
+
+          # Copy your code
           cp lambda/listings.py lambda_package/
           cp lambda/config.py lambda_package/
           cp lambda/db.py lambda_package/
           cp lambda/commute.py lambda_package/
+
+          # Install dependencies into the package folder
+          pip install --target=lambda_package -r lambda/requirements.txt
+
+          # Zip everything
           cd lambda_package
           zip -r ../listings_lambda.zip . -x "*__pycache__*"
 
