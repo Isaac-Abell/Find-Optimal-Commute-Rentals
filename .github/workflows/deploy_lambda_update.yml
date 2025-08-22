@@ -14,7 +14,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: rental-listings-updater-repo
+  ECR_REPOSITORY: rental-listings-updater
   LAMBDA_FUNCTION_NAME: rental-listings-updater-docker
   S3_BUCKET_NAME: commute-rental-listings
 
