@@ -37,9 +37,11 @@ jobs:
         id: publish_layer1
         run: |
           rm -rf lambda_layer1
-          mkdir -p lambda_layer1/python
-          pip install --target=lambda_layer1/python pandas numpy
-          zip -r lambda_layer1.zip lambda_layer1
+          mkdir -p lambda_layer1/python/lib/python3.13/site-packages
+          pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy
+          cd lambda_layer1
+          zip -r ../lambda_layer1.zip .
+          cd ..
           LAYER1_ARN=$(aws lambda publish-layer-version \
             --layer-name listings-dependencies-core \
             --zip-file fileb://lambda_layer1.zip \
@@ -53,9 +55,11 @@ jobs:
         id: publish_layer2
         run: |
           rm -rf lambda_layer2
-          mkdir -p lambda_layer2/python
-          pip install --target=lambda_layer2/python sqlalchemy psycopg2-binary geopy googlemaps
-          zip -r lambda_layer2.zip lambda_layer2
+          mkdir -p lambda_layer2/python/lib/python3.13/site-packages
+          pip install --target=lambda_layer2/python/lib/python3.13/site-packages sqlalchemy psycopg2-binary geopy googlemaps
+          cd lambda_layer2
+          zip -r ../lambda_layer2.zip .
+          cd ..
           LAYER2_ARN=$(aws lambda publish-layer-version \
             --layer-name listings-dependencies-aux \
             --zip-file fileb://lambda_layer2.zip \
