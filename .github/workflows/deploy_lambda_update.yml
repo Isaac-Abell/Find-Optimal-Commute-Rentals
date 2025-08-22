@@ -45,7 +45,7 @@ jobs:
 
       - name: Create new Lambda function with container image
         env:
-          FUNCTION_NAME: rental-listings-updater
+          FUNCTION_NAME: rental-listings-updater-docker
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REGION=us-east-1
