@@ -37,7 +37,7 @@ jobs:
         run: |
           rm -rf lambda_layer1
           mkdir -p lambda_layer1/python/lib/python3.13/site-packages
-          pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy homeharvest
+          pip install --target=lambda_layer1/python/lib/python3.13/site-packages pandas numpy
           cd lambda_layer1
           zip -r ../lambda_layer1.zip .
           cd ..
