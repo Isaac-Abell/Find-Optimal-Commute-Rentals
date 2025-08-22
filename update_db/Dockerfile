@@ -4,11 +4,11 @@ FROM public.ecr.aws/lambda/python:3.13
 WORKDIR /var/task
 
 # Copy the requirements file
-COPY requirements.txt .
+COPY update_db/requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy the Lambda source code
-COPY . .
+COPY update_db/ .
 
 # Set the CMD to handler.
 CMD ["rental_listings_updater.lambda_handler"]
