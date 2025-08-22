@@ -1,60 +1,79 @@
-name: Deploy Lambda Listings Updater (Docker)
+name: Deploy Rental Listings Updater to AWS Lambda
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'lambda/**'
-      - '.github/workflows/deploy_lambda_update.yml'
+      - 'update_db/**'
+
+# Permissions for the actions to interact with AWS
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: rental-listings-updater-repo
+  LAMBDA_FUNCTION_NAME: rental-listings-updater-docker
+  S3_BUCKET_NAME: commute-rental-listings
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker image
-        env:
-          ECR_REPO_NAME: rental-listings-updater
-          IMAGE_TAG: latest
+      - name: Set up ECR URI
+        id: set-ecr-uri
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REGION=us-east-1
-          REPO_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO_NAME"
+          ECR_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-          # Create ECR repo if it doesn't exist
-          aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" || \
-            aws ecr create-repository --repository-name "$ECR_REPO_NAME"
-
-          # Build and push Docker image
-          docker build -t $REPO_URI:$IMAGE_TAG ./lambda
-          docker push $REPO_URI:$IMAGE_TAG
-
-      - name: Update existing Lambda with new container image
-        env:
-          FUNCTION_NAME: rental-listings-updater-docker
+      - name: Build, tag, and push image to Amazon ECR
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REGION=us-east-1
-          IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/rental-listings-updater:latest"
+          docker build -t ${{ env.ECR_URI }}:${{ env.IMAGE_TAG }} -f update_db/Dockerfile .
+          docker push ${{ env.ECR_URI }}:${{ env.IMAGE_TAG }}
 
-          # Update the existing Lambda function with new container image
+      - name: Update AWS Lambda function code
+        run: |
           aws lambda update-function-code \
-            --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE_URI"
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --image-uri ${{ env.ECR_URI }}:${{ env.IMAGE_TAG }} \
+            --region ${{ env.AWS_REGION }}
 
-          # Wait until Lambda update is complete
-          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+      - name: Add S3 trigger permission
+        run: |
+          aws lambda add-permission \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --statement-id 'S3TriggerPermission' \
+            --action 'lambda:InvokeFunction' \
+            --principal 's3.amazonaws.com' \
+            --source-arn 'arn:aws:s3:::${{ env.S3_BUCKET_NAME }}' \
+            --source-account ${{ secrets.AWS_ACCOUNT_ID }}
+
+      - name: Configure S3 bucket event notification
+        run: |
+          aws s3api put-bucket-notification-configuration \
+            --bucket ${{ env.S3_BUCKET_NAME }} \
+            --notification-configuration '{
+              "LambdaFunctionConfigurations": [
+                {
+                  "LambdaFunctionArn": "arn:aws:lambda:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.LAMBDA_FUNCTION_NAME }}",
+                  "Events": ["s3:ObjectCreated:*"]
+                }
+              ]
+            }'
