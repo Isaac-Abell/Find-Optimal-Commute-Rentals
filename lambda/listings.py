@@ -100,6 +100,7 @@ def lambda_handler(event, context):
         dict: JSON-serializable dictionary containing:
             - page, page_size, total_listings, results (list of dicts)
     """
+    print(event)
     user_address = event['user_address']
     commute_type = event.get('commute_type', 'WALK')
     page = event.get('page', 1)
