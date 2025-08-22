@@ -118,7 +118,7 @@ jobs:
           # Update configuration/layers
           aws lambda update-function-configuration \
             --function-name "$FUNCTION_NAME" \
-            --layers $LAYER1_ARN $LAYER2_ARN
+            --layers $LAYER1_ARN $LAYER2_ARN $LAYER3_ARN
 
           # Wait again to ensure Lambda is fully active
           aws lambda wait function-updated --function-name "$FUNCTION_NAME"
