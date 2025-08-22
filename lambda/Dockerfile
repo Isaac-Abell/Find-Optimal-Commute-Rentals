@@ -1,11 +1,10 @@
-# Start with AWS Lambda Python 3.13 base image
 FROM public.ecr.aws/lambda/python:3.13
 
 # Set working directory
 WORKDIR /var/task
 
-# Copy the requirements file from the parent directory and install dependencies.
-COPY lambda/requirements.txt .
+# Copy the requirements file
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy the Lambda source code
