@@ -1,5 +1,6 @@
 import pandas as pd
 import googlemaps
+import json
 from sqlalchemy import select, func
 from db import engine
 from config import listings
@@ -100,7 +101,10 @@ def lambda_handler(event, context):
         dict: JSON-serializable dictionary containing:
             - page, page_size, total_listings, results (list of dicts)
     """
-    event = event.get('body', event)
+    if 'body' in event and isinstance(event['body'], str):
+        event = json.loads(event['body'])
+    elif 'body' in event and isinstance(event['body'], dict):
+        event = event['body']
     user_address = event['user_address']
     commute_type = event.get('commute_type', 'WALK')
     page = event.get('page', 1)
