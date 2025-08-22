@@ -1,36 +1,39 @@
 import pandas as pd
 import googlemaps
-from sqlalchemy import select
+from sqlalchemy import select, func
 from db import engine
 from config import listings
-from commute import nearest_region, compute_commute_times
+from commute import nearest_region, compute_commute_times, haversine_distance
 from config import GOOGLE_API_KEY
 
-def lambda_handler(event, context):
-    """Fetch listings near a user's address and rank them by commute time (after paging)."""
-    user_address = event['user_address']
-    commute_type = event.get('commute_type', 'WALK')
-    page = event.get('page', 1)
-    page_size = event.get('page_size', 20)
-    filters = event.get('filters', {})
-    sort_by = event.get('sort_by', ['list_price'])  # now sorting defaults to price
-    ascending = event.get('ascending', [True] * len(sort_by))
+def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price', ascending=True, page=1, page_size=20):
+    """
+    Fetch listings from the database with optional filtering, sorting, and distance calculation.
 
-    # --- Step 1: Geocode ---
-    gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
-    try:
-        geocode_result = gmaps.geocode(user_address)
-        user_location = geocode_result[0]['geometry']['location']
-        user_lat, user_lon = user_location['lat'], user_location['lng']
-    except Exception as e:
-        print(f"Failed to geocode address: {e}")
-        return pd.DataFrame()
+    Distance is computed in SQL only if sorting by distance/commute; otherwise, it is computed in Python
+    for the limited page of results to avoid expensive queries.
 
-    # --- Step 2: Nearest city ---
-    closest_city, _ = nearest_region(user_lat, user_lon)
+    Parameters:
+        user_lat (float): Latitude of the user location.
+        user_lon (float): Longitude of the user location.
+        closest_city (str): Region/city to filter listings by proximity.
+        filters (dict): Optional filters for price, beds, and baths.
+        sort_by (str): Column to sort by. Special values 'distance', 'commute_seconds', 'commute_time'
+                       trigger SQL distance computation.
+        ascending (bool): Sort order; True for ascending, False for descending.
+        page (int): Page number (1-based) for pagination.
+        page_size (int): Number of listings per page.
 
-    # --- Step 3: Query database with filters ---
+    Returns:
+        pd.DataFrame: DataFrame containing the paged listings with 'distance_meters' always populated.
+    """
+    # Determine if we need to sort by distance/commute
+    need_distance_sort = sort_by in ['commute_seconds', 'commute_time', 'distance']
+
+    # Base query: no distance computation unless sorting by distance
     query = select(listings).where(listings.c.region == closest_city)
+
+    # Apply optional filters
     if "min_price" in filters:
         query = query.where(listings.c.list_price >= filters["min_price"])
     if "max_price" in filters:
@@ -40,34 +43,102 @@ def lambda_handler(event, context):
     if "max_beds" in filters:
         query = query.where(listings.c.beds <= filters["max_beds"])
     if "min_baths" in filters:
-        query = query.where((listings.c.full_baths + listings.c.half_baths/2) >= filters["min_baths"])
+        query = query.where((listings.c.full_baths + listings.c.half_baths / 2) >= filters["min_baths"])
     if "max_baths" in filters:
-        query = query.where((listings.c.full_baths + listings.c.half_baths/2) <= filters["max_baths"])
+        query = query.where((listings.c.full_baths + listings.c.half_baths / 2) <= filters["max_baths"])
 
+    # Sorting
+    if need_distance_sort:
+        # Compute distance in SQL for sorting if necessary
+        R = 6371000  # Earth radius in meters
+        distance_expr = R * 2 * func.asin(
+            func.sqrt(
+                func.pow(func.sin(func.radians(listings.c.latitude - user_lat) / 2), 2) +
+                func.cos(func.radians(user_lat)) *
+                func.cos(func.radians(listings.c.latitude)) *
+                func.pow(func.sin(func.radians(listings.c.longitude - user_lon) / 2), 2)
+            )
+        ).label('distance_meters')
+        query = select(listings, distance_expr).where(listings.c.region == closest_city).order_by(distance_expr)
+    else:
+        # Sort by other column safely using SQLAlchemy column reference
+        if hasattr(listings.c, sort_by):
+            col = getattr(listings.c, sort_by)
+            query = query.order_by(col.asc() if ascending else col.desc())
+
+    # Pagination
+    query = query.limit(page_size).offset((page - 1) * page_size)
+
+    # Execute query
     df = pd.read_sql(query, engine)
+
+    # Compute distance in Python if not sorted by distance
+    if not need_distance_sort:
+        df['distance_meters'] = df.apply(
+            lambda row: haversine_distance(user_lat, user_lon, row['latitude'], row['longitude']), axis=1
+        )
+
+    return df
+
+
+def lambda_handler(event, context):
+    """
+    AWS Lambda handler to fetch listings near a user's address, apply filters, 
+    compute distances and commute times, and return paginated JSON results.
+
+    Parameters:
+        event (dict): Dictionary containing keys:
+            - user_address (str): Address to geocode.
+            - commute_type (str, optional): Travel mode ('WALK', 'DRIVE', etc.).
+            - page (int, optional): Page number for pagination (default 1).
+            - page_size (int, optional): Number of listings per page (default 20).
+            - filters (dict, optional): Filtering options for price, beds, baths.
+            - sort_by (str, optional): Column to sort by (default 'list_price').
+            - ascending (bool, optional): Sort order (default True).
+
+    Returns:
+        dict: JSON-serializable dictionary containing:
+            - page, page_size, total_listings, results (list of dicts)
+    """
+    user_address = event['user_address']
+    commute_type = event.get('commute_type', 'WALK')
+    page = event.get('page', 1)
+    page_size = event.get('page_size', 20)
+    filters = event.get('filters', {})
+    sort_by = event.get('sort_by', 'list_price')  # single string
+    ascending = event.get('ascending', True)      # single boolean
+
+    # --- Step 1: Geocode user address ---
+    gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
+    try:
+        geocode_result = gmaps.geocode(user_address)
+        user_location = geocode_result[0]['geometry']['location']
+        user_lat, user_lon = user_location['lat'], user_location['lng']
+    except Exception as e:
+        print(f"Failed to geocode address: {e}")
+        return {"error": f"Geocoding failed: {str(e)}"}
+
+    # --- Step 2: Determine nearest city/region ---
+    closest_city, _ = nearest_region(user_lat, user_lon)
+
+    # --- Step 3: Fetch listings ---
+    df = get_listings(user_lat, user_lon, closest_city, filters, sort_by, ascending, page, page_size)
     if df.empty:
-        return pd.DataFrame()
+        return {"results": [], "total_listings": 0}
 
-    # --- Step 4: Sort by non-commute columns ---
-    for col, asc_flag in reversed(list(zip(sort_by, ascending))):
-        if col in df.columns:
-            df = df.sort_values(col, ascending=asc_flag, kind='mergesort')
+    # --- Step 4: Compute commute times for returned listings only ---
+    origins_coords = list(zip(df['latitude'], df['longitude']))
+    df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
+    df['commute_minutes'] = df['commute_seconds'] / 60
 
-    # --- Step 5: Pagination (before commute computation) ---
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    df_page = df.iloc[start_idx:end_idx]
-
-    # --- Step 6: Compute commute times only for this subset ---
-    origins_coords = list(zip(df_page['latitude'], df_page['longitude']))
-    df_page['commute_seconds'] = compute_commute_times(
-        origins_coords, (user_lat, user_lon), travel_type=commute_type
-    )
-    df_page = df_page[df_page['commute_seconds'].notnull()]
-    df_page['commute_minutes'] = df_page['commute_seconds'] / 60
-
-    # --- Step 7: Return subset with commute info ---
+    # --- Step 5: Prepare JSON response ---
     columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
-               'full_baths', 'half_baths', 'property_url', 'commute_minutes',
-               'latitude', 'longitude']
-    return df_page[columns].to_dict(orient="records")
+               'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
+               'distance_meters', 'commute_minutes']
+
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total_listings": len(df),
+        "results": df[columns].to_dict(orient="records")
+    }

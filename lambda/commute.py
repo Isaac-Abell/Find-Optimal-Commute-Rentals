@@ -1,6 +1,7 @@
 import requests
 import json
 from geopy.distance import geodesic
+import numpy as np
 from config import CITY_CENTERS, GOOGLE_API_KEY
 
 def nearest_region(lat, lon):
@@ -13,6 +14,17 @@ def nearest_region(lat, lon):
             min_distance = distance
             closest = city
     return closest, min_distance
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Compute the great-circle distance between two points (in meters)."""
+    R = 6371000  # Earth radius in meters
+    phi1, phi2 = np.radians(lat1), np.radians(lat2)
+    d_phi = np.radians(lat2 - lat1)
+    d_lambda = np.radians(lon2 - lon1)
+
+    a = np.sin(d_phi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(d_lambda / 2) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    return R * c
 
 def compute_commute_times(origins_coords, destination_coord, travel_type="WALK"):
     """Compute commute times for multiple origins to one destination using Google APIs."""
