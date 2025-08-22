@@ -5,9 +5,17 @@ from db import engine
 from config import listings
 from commute import nearest_region, compute_commute_times
 
-def lambda_handler(user_address, commute_type="WALK", page=1, page_size=20,
-                      filters=None, sort_by=None, ascending=None):
+def lambda_handler(event, context):
     """Fetch listings near a user's address and rank them by commute time."""
+
+    # Extract parameters from the event dictionary, with defaults
+    user_address = event['user_address']  # required
+    commute_type = event.get('commute_type', 'WALK')
+    page = event.get('page', 1)
+    page_size = event.get('page_size', 20)
+    filters = event.get('filters', None)
+    sort_by = event.get('sort_by', None)
+    ascending = event.get('ascending', None)
     filters = filters or {}
     sort_by = sort_by or ["commute_minutes"]
     ascending = ascending or [True] * len(sort_by)
