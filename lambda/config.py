@@ -29,7 +29,7 @@ listings = Table(
     Column("id", Integer, primary_key=True),
     Column("formatted_address", String),
     Column("city", String),
-    Column("nearest_city", String),
+    Column("region", String),
     Column("list_price", Float),
     Column("beds", Integer),
     Column("full_baths", Integer),

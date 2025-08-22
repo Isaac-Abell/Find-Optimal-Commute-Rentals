@@ -19,8 +19,6 @@ def lambda_handler(event, context):
     sort_by = sort_by or ["commute_minutes"]
     ascending = ascending or [True] * len(sort_by)
 
-    print(list(listings.c.keys()))
-
     # --- Step 1: Geocode ---
     gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
     try:
