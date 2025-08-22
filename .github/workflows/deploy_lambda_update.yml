@@ -24,10 +24,9 @@ jobs:
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build and Push Docker image to ECR
+      - name: Build and Push Docker image
         env:
           ECR_REPO_NAME: rental-listings-updater
           IMAGE_TAG: latest
@@ -40,13 +39,11 @@ jobs:
           aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" || \
             aws ecr create-repository --repository-name "$ECR_REPO_NAME"
 
-          # Build Docker image
+          # Build and push Docker image
           docker build -t $REPO_URI:$IMAGE_TAG ./lambda
-
-          # Push image to ECR
           docker push $REPO_URI:$IMAGE_TAG
 
-      - name: Deploy Lambda using container image
+      - name: Create new Lambda function with container image
         env:
           FUNCTION_NAME: rental-listings-updater
         run: |
@@ -54,20 +51,12 @@ jobs:
           REGION=us-east-1
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/rental-listings-updater:latest"
 
-          # Check if function exists
-          if aws lambda get-function --function-name "$FUNCTION_NAME"; then
-            echo "Updating existing Lambda function with container image..."
-            aws lambda update-function-code \
-              --function-name "$FUNCTION_NAME" \
-              --image-uri "$IMAGE_URI"
-          else
-            echo "Creating new Lambda function with container image..."
-            aws lambda create-function \
-              --function-name "$FUNCTION_NAME" \
-              --package-type Image \
-              --code ImageUri="$IMAGE_URI" \
-              --role ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
-          fi
+          # Create function (new)
+          aws lambda create-function \
+            --function-name "$FUNCTION_NAME" \
+            --package-type Image \
+            --code ImageUri="$IMAGE_URI" \
+            --role ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
 
-          # Wait until Lambda is fully updated
-          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          # Wait until Lambda is fully created
+          aws lambda wait function-exists --function-name "$FUNCTION_NAME"

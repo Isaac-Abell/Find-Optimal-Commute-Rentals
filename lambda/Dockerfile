@@ -1,4 +1,4 @@
-# AWS Lambda Python base image
+# Use AWS Lambda Python base image
 FROM public.ecr.aws/lambda/python:3.13
 
 # Install dependencies
