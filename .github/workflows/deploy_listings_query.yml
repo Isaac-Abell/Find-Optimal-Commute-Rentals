@@ -17,42 +17,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Setup Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
 
-      # 3. Install dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r lambda/requirements.txt
-
-      # 4. Package Lambda code
-      - name: Package Lambda
-        run: |
-          rm -f listings_lambda.zip
-          mkdir -p lambda_package
-
-          # Copy your code
-          cp lambda/listings.py lambda_package/
-          cp lambda/config.py lambda_package/
-          cp lambda/db.py lambda_package/
-          cp lambda/commute.py lambda_package/
-
-          # Install dependencies into the package folder
-          pip install --target=lambda_package -r lambda/requirements.txt
-
-          # Zip everything
-          cd lambda_package
-          zip -r ../listings_lambda.zip . -x "*__pycache__*"
-
-      # 5. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -60,10 +32,45 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # 6. Deploy Lambda code
-      - name: Update Lambda function code
+      # Package dependencies as Lambda layer
+      - name: Package Lambda dependencies as layer
+        run: |
+          rm -rf lambda_layer
+          mkdir -p lambda_layer/python
+          pip install --target=lambda_layer/python -r lambda/requirements.txt
+          zip -r lambda_layer.zip lambda_layer
+
+      - name: Publish Lambda Layer
+        id: publish_layer
+        run: |
+          LAYER_ARN=$(aws lambda publish-layer-version \
+            --layer-name listings-query-dependencies \
+            --zip-file fileb://lambda_layer.zip \
+            --compatible-runtimes python3.13 \
+            --query LayerVersionArn \
+            --output text)
+          echo "LAYER_ARN=$LAYER_ARN" >> $GITHUB_ENV
+
+      # Package Lambda function code
+      - name: Package Lambda function
+        run: |
+          rm -f listings_lambda.zip
+          mkdir -p lambda_package
+          cp lambda/listings.py lambda_package/
+          cp lambda/config.py lambda_package/
+          cp lambda/db.py lambda_package/
+          cp lambda/commute.py lambda_package/
+          cd lambda_package
+          zip -r ../listings_lambda.zip . -x "*__pycache__*"
+
+      # Update Lambda code and attach layer
+      - name: Deploy Lambda
         run: |
           FUNCTION_NAME="listings-query"
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --zip-file fileb://listings_lambda.zip
+
+          aws lambda update-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --layers $LAYER_ARN
