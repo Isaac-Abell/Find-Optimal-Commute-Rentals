@@ -7,8 +7,6 @@ from commute import nearest_region, compute_commute_times
 
 def lambda_handler(event, context):
     """Fetch listings near a user's address and rank them by commute time."""
-
-    # Extract parameters from the event dictionary, with defaults
     user_address = event['user_address']  # required
     commute_type = event.get('commute_type', 'WALK')
     page = event.get('page', 1)
