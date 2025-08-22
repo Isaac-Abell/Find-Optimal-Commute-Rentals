@@ -43,7 +43,7 @@ jobs:
           docker build -t $REPO_URI:$IMAGE_TAG ./lambda
           docker push $REPO_URI:$IMAGE_TAG
 
-      - name: Create new Lambda function with container image
+      - name: Update existing Lambda with new container image
         env:
           FUNCTION_NAME: rental-listings-updater-docker
         run: |
@@ -51,12 +51,10 @@ jobs:
           REGION=us-east-1
           IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/rental-listings-updater:latest"
 
-          # Create Lambda using only required parameters
-          aws lambda create-function \
+          # Update the existing Lambda function with new container image
+          aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
-            --package-type Image \
-            --code ImageUri="$IMAGE_URI" \
-            --role "${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}"
+            --image-uri "$IMAGE_URI"
 
-          # Wait until Lambda exists
-          aws lambda wait function-exists --function-name "$FUNCTION_NAME"
+          # Wait until Lambda update is complete
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
