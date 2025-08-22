@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir \
 COPY rental_listings_updater.py ${LAMBDA_TASK_ROOT}/
 COPY config.py ${LAMBDA_TASK_ROOT}/
 COPY db.py ${LAMBDA_TASK_ROOT}/
+COPY commute.py ${LAMBDA_TASK_ROOT}/
 
 # Lambda entrypoint
 CMD ["rental_listings_updater.lambda_handler"]
