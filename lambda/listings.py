@@ -5,7 +5,7 @@ from db import engine
 from config import listings
 from commute import nearest_region, compute_commute_times
 
-def get_listings_near(user_address, commute_type="WALK", page=1, page_size=20,
+def lambda_handler(user_address, commute_type="WALK", page=1, page_size=20,
                       filters=None, sort_by=None, ascending=None):
     """Fetch listings near a user's address and rank them by commute time."""
     filters = filters or {}
