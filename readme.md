@@ -8,17 +8,16 @@ A serverless data pipeline for scraping, processing, and serving rental listings
 
 * The **scraper must be run locally**, not in AWS. Requests from AWS IP ranges are blocked by the data source.
 * AWS credentials must be set as environment variables locally.
-* **Currently supported cities:**
 
-  ```python
-  "Bay Area, CA",
-  "New York, NY",
-  "Seattle, WA",
-  "Austin, TX",
-  "Boston, MA",
-  "Denver, CO",
-  "Los Angeles, CA"
-  ```
+### Supported Regions
+
+- **Bay Area, CA**
+- **New York City Metro Area, NY**
+- **Seattle Metropolitan Area, WA**
+- **Austin Metropolitan Area, TX**
+- **Greater Boston Area, MA**
+- **Denver Metropolitan Area, CO**
+- **Greater Los Angeles Area, CA**
 
   Expansion to additional cities is easy, but for now we keep it limited to avoid an unnecessarily huge database.
 
