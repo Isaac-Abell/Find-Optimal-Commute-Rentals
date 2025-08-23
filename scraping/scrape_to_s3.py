@@ -71,7 +71,7 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
     # Final columns to include (only those that exist in the DataFrame)
     desired_columns = [
         'id', 'property_url', 'latitude', 'longitude', 'beds', 'full_baths',
-        'half_baths', 'list_price', 'formatted_address', 'city', 'region'
+        'half_baths', 'list_price', 'formatted_address', 'city', 'region', 'primary_photo'
     ]
     
     # Drop rows missing essential columns

@@ -156,7 +156,7 @@ def lambda_handler(event, context):
         # --- Step 5: Prepare JSON response ---
         columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
                 'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-                'distance_meters', 'commute_minutes']
+                'distance_meters', 'commute_minutes', 'primary_photo']
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
