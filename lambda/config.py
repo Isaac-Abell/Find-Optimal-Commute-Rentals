@@ -35,6 +35,7 @@ listings = Table(
     Column("full_baths", Integer),
     Column("half_baths", Integer),
     Column("property_url", String),
+    Column("primary_photo", String),
     Column("latitude", Float),
     Column("longitude", Float)
 )
