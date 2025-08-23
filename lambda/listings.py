@@ -35,7 +35,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
 
     # Base query: no distance computation unless sorting by distance
     query = select(listings).where(listings.c.region == closest_city)
-    print(filters)
+
     # Apply optional filters
     if "min_price" in filters:
         query = query.where(listings.c.list_price >= filters["min_price"])
@@ -62,7 +62,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
                 func.pow(func.sin(func.radians(listings.c.longitude - user_lon) / 2), 2)
             )
         ).label('distance_kilometers')
-        query = select(listings, distance_expr).where(listings.c.region == closest_city).order_by(distance_expr)
+        query = query.add_columns(distance_expr).order_by(distance_expr if ascending else distance_expr.desc())
     else:
         # Sort by other column safely using SQLAlchemy column reference
         if hasattr(listings.c, sort_by):
