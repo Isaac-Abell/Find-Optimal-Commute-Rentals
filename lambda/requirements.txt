@@ -3,4 +3,3 @@ sqlalchemy
 psycopg2-binary
 googlemaps
 geopy
-numpy

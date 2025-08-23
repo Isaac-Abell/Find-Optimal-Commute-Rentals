@@ -13,7 +13,7 @@ CITY_CENTERS = {
     "Los Angeles, CA": (34.0522, -118.2437)
 }
 
-MAX_DISTANCE_MILES = 50
+MAX_DISTANCE_KM = 50
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 DB_USER = os.environ.get("username")

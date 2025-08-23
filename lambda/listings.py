@@ -3,8 +3,8 @@ import googlemaps
 import json
 from sqlalchemy import select, func
 from db import engine
-from config import listings
-from commute import nearest_region, compute_commute_times, haversine_distance
+from config import MAX_DISTANCE_KM, listings
+from commute import nearest_region, compute_commute_times, geodesic_distance
 from config import GOOGLE_API_KEY
 
 def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price', ascending=True, page=1, page_size=20):
@@ -76,7 +76,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
     # Compute distance in Python if not sorted by distance
     if 'distance_meters' not in df.columns:
         df['distance_meters'] = df.apply(
-            lambda row: haversine_distance(user_lat, user_lon, row['latitude'], row['longitude']),
+            lambda row: geodesic_distance(user_lat, user_lon, row['latitude'], row['longitude']),
             axis=1
         )
 
@@ -125,7 +125,11 @@ def lambda_handler(event, context):
         return {"error": f"Geocoding failed: {str(e)}"}
 
     # --- Step 2: Determine nearest city/region ---
-    closest_city, _ = nearest_region(user_lat, user_lon)
+    closest_city, min_distance = nearest_region(user_lat, user_lon)
+
+    if min_distance > MAX_DISTANCE_KM:
+        print(f"User is too far from any city center (min distance: {min_distance} km).")
+        return {"error": "User is too far from supported city centers."}
 
     # --- Step 3: Fetch listings ---
     df = get_listings(user_lat, user_lon, closest_city, filters, sort_by, ascending, page, page_size)

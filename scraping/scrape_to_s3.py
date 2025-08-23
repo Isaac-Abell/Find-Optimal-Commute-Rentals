@@ -4,7 +4,7 @@ from datetime import datetime
 from io import StringIO
 from homeharvest import scrape_property
 from commute import nearest_region
-from config import CITY_CENTERS, MAX_DISTANCE_MILES
+from config import CITY_CENTERS, MAX_DISTANCE_KM
 
 def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
     """
@@ -46,9 +46,9 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
             ))
 
             # Filter by max distance
-            df = df[df['distance_to_city'] <= MAX_DISTANCE_MILES]
+            df = df[df['distance_to_city'] <= MAX_DISTANCE_KM]
             if df.empty:
-                print(f"No listings within {MAX_DISTANCE_MILES} miles for {city}")
+                print(f"No listings within {MAX_DISTANCE_KM} kilometers for {city}")
                 continue
 
             df['last_updated'] = datetime.utcnow()
