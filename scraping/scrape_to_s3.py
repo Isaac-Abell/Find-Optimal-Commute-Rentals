@@ -51,6 +51,12 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
                 continue
             
             df['last_updated'] = datetime.utcnow()
+            
+            # --- Fill NaN bathrooms with 0 ---
+            for col in ['full_baths', 'half_baths']:
+                if col in df.columns:
+                    df[col] = df[col].fillna(0)
+            
             all_properties.append(df)
             print(f"Scraped {len(df)} listings for {city}")
             

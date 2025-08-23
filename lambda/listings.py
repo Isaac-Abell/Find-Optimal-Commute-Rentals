@@ -74,9 +74,10 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
     df = pd.read_sql(query, engine)
 
     # Compute distance in Python if not sorted by distance
-    if not need_distance_sort:
+    if 'distance_meters' not in df.columns:
         df['distance_meters'] = df.apply(
-            lambda row: haversine_distance(user_lat, user_lon, row['latitude'], row['longitude']), axis=1
+            lambda row: haversine_distance(user_lat, user_lon, row['latitude'], row['longitude']),
+            axis=1
         )
 
     return df
