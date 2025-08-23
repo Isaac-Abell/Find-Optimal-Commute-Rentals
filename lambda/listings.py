@@ -122,33 +122,47 @@ def lambda_handler(event, context):
         user_lat, user_lon = user_location['lat'], user_location['lng']
     except Exception as e:
         print(f"Failed to geocode address: {e}")
-        return {"error": f"Geocoding failed: {str(e)}"}
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": f"Failed to find address: {user_address}"})
+        }
 
     # --- Step 2: Determine nearest city/region ---
     closest_city, min_distance = nearest_region(user_lat, user_lon)
 
     if min_distance > MAX_DISTANCE_KM:
         print(f"User is too far from any city center (min distance: {min_distance} km).")
-        return {"error": "User is too far from supported city centers."}
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "User is too far from supported city centers."})
+        }
 
-    # --- Step 3: Fetch listings ---
-    df = get_listings(user_lat, user_lon, closest_city, filters, sort_by, ascending, page, page_size)
-    if df.empty:
-        return {"results": [], "total_listings": 0}
+    try:
+        # --- Step 3: Fetch listings ---
+        df = get_listings(user_lat, user_lon, closest_city, filters, sort_by, ascending, page, page_size)
+        if df.empty:
+            return {"results": [], "total_listings": 0}
 
-    # --- Step 4: Compute commute times for returned listings only ---
-    origins_coords = list(zip(df['latitude'], df['longitude']))
-    df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
-    df['commute_minutes'] = df['commute_seconds'] / 60
+        # --- Step 4: Compute commute times for returned listings only ---
+        origins_coords = list(zip(df['latitude'], df['longitude']))
+        df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
+        df['commute_minutes'] = df['commute_seconds'] / 60
 
-    # --- Step 5: Prepare JSON response ---
-    columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
-               'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-               'distance_meters', 'commute_minutes']
+        # --- Step 5: Prepare JSON response ---
+        columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
+                'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
+                'distance_meters', 'commute_minutes']
+        results = df[columns].to_dict(orient="records")
+
+    except Exception as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": f"Failed to process listings"})
+        }
 
     return {
         "page": page,
         "page_size": page_size,
         "total_listings": len(df),
-        "results": df[columns].to_dict(orient="records")
+        "results": results
     }
