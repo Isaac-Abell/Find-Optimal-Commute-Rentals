@@ -107,6 +107,7 @@ def lambda_handler(event, context):
     try:
         validated = check_inputs(event)
     except ValueError as e:
+        print(f"Input validation error: {e}")
         return {
             "statusCode": 400,
             "body": json.dumps({"error": str(e)})
