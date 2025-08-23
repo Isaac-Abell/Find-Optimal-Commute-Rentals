@@ -28,7 +28,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
         page_size (int): Number of listings per page.
 
     Returns:
-        pd.DataFrame: DataFrame containing the paged listings with 'distance_meters' always populated.
+        pd.DataFrame: DataFrame containing the paged listings with 'distance_kilometers' always populated.
     """
     # Determine if we need to sort by distance/commute
     need_distance_sort = sort_by in ['commute_seconds', 'commute_time', 'distance']
@@ -53,7 +53,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
     # Sorting
     if need_distance_sort:
         # Compute distance in SQL for sorting if necessary
-        R = 6371000  # Earth radius in meters
+        R = 6371  # Earth radius in kilometers
         distance_expr = R * 2 * func.asin(
             func.sqrt(
                 func.pow(func.sin(func.radians(listings.c.latitude - user_lat) / 2), 2) +
@@ -61,7 +61,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
                 func.cos(func.radians(listings.c.latitude)) *
                 func.pow(func.sin(func.radians(listings.c.longitude - user_lon) / 2), 2)
             )
-        ).label('distance_meters')
+        ).label('distance_kilometers')
         query = select(listings, distance_expr).where(listings.c.region == closest_city).order_by(distance_expr)
     else:
         # Sort by other column safely using SQLAlchemy column reference
@@ -76,8 +76,8 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
     df = pd.read_sql(query, engine)
 
     # Compute distance in Python if not sorted by distance
-    if 'distance_meters' not in df.columns:
-        df['distance_meters'] = df.apply(
+    if 'distance_kilometers' not in df.columns:
+        df['distance_kilometers'] = df.apply(
             lambda row: geodesic_distance(user_lat, user_lon, row['latitude'], row['longitude']),
             axis=1
         )
@@ -157,7 +157,7 @@ def lambda_handler(event, context):
         # --- Step 5: Prepare JSON response ---
         columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
                 'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-                'distance_meters', 'commute_minutes', 'primary_photo']
+                'distance_kilometers', 'commute_minutes', 'primary_photo']
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
