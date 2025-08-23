@@ -2,23 +2,25 @@
 
 A serverless data pipeline for scraping, processing, and serving rental listings with commute-based filtering. This project scrapes real estate listings, stores them in AWS S3, updates a SQL database via Lambda, and exposes the data via an API for a front-end UI.
 
+[See full website here](https://isaac-abell.github.io/find-commute-rentals-fe/)
+
 ---
 
 ## ⚠️ Important Note
 
 * The **scraper must be run locally**, not in AWS. Requests from AWS IP ranges are blocked by the data source.
 * AWS credentials must be set as environment variables locally.
-* **Currently supported cities:**
 
-  ```python
-  "San Francisco Bay Area, CA": (37.7749, -122.4194),
-  "New York, NY": (40.7128, -74.0060),
-  "Seattle, WA": (47.6062, -122.3321),
-  "Austin, TX": (30.2672, -97.7431),
-  "Boston, MA": (42.3601, -71.0589),
-  "Denver, CO": (39.7392, -104.9903),
-  "Los Angeles, CA": (34.0522, -118.2437)
-  ```
+### Supported Regions
+
+- **Bay Area, CA**
+- **New York City Metro Area, NY**
+- **Seattle Metropolitan Area, WA**
+- **Austin Metropolitan Area, TX**
+- **Greater Boston Area, MA**
+- **Denver Metropolitan Area, CO**
+- **Greater Los Angeles Area, CA**
+
 
   Expansion to additional cities is easy, but for now we keep it limited to avoid an unnecessarily huge database.
 
@@ -48,7 +50,7 @@ A serverless data pipeline for scraping, processing, and serving rental listings
 ## Architecture Overview
 
 ```text
-Scraper (Local: scrape.py) → S3 (CSV) → Lambda Trigger (update_db.py) → SQL Database → API Lambda (lambda_api.py) → Front-end UI
+Scraper (Local: scrape) → S3 (CSV) → Lambda Trigger (update_db) → SQL Database → API Lambda (lambda) → Front-end UI
 ```
 
 ---
