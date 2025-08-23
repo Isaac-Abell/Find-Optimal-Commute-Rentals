@@ -19,6 +19,7 @@ A serverless data pipeline for scraping, processing, and serving rental listings
 - **Denver Metropolitan Area, CO**
 - **Greater Los Angeles Area, CA**
 
+
   Expansion to additional cities is easy, but for now we keep it limited to avoid an unnecessarily huge database.
 
 ---
