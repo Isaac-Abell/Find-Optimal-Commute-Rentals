@@ -5,7 +5,9 @@ from sqlalchemy import select, func
 from db import engine
 from config import MAX_DISTANCE_KM, listings
 from commute import nearest_region, compute_commute_times, geodesic_distance
+from check_inputs import check_inputs
 from config import GOOGLE_API_KEY
+
 
 def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price', ascending=True, page=1, page_size=20):
     """
@@ -102,17 +104,20 @@ def lambda_handler(event, context):
         dict: JSON-serializable dictionary containing:
             - page, page_size, total_listings, results (list of dicts)
     """
-    if 'body' in event and isinstance(event['body'], str):
-        event = json.loads(event['body'])
-    elif 'body' in event and isinstance(event['body'], dict):
-        event = event['body']
-    user_address = event['user_address']
-    commute_type = event.get('commute_type', 'WALK')
-    page = event.get('page', 1)
-    page_size = event.get('page_size', 20)
-    filters = event.get('filters', {})
-    sort_by = event.get('sort_by', 'list_price')  # single string
-    ascending = event.get('ascending', True)      # single boolean
+    try:
+        validated = check_inputs(event)
+    except ValueError as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": str(e)})
+        }
+    user_address = validated['user_address']
+    commute_type = validated['commute_type']
+    page = validated['page']
+    page_size = validated['page_size']
+    filters = validated['filters']
+    sort_by = validated['sort_by']
+    ascending = validated['ascending']
 
     # --- Step 1: Geocode user address ---
     gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
