@@ -101,27 +101,6 @@ def lambda_handler(event, context):
         dict: JSON-serializable dictionary containing:
             - page, page_size, total_listings, results (list of dicts)
     """
-    if event['httpMethod'] == 'OPTIONS':
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST,OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": ""
-        }
-
-    # Reject anything that's not POST
-    if event['httpMethod'] != 'POST':
-        return {
-            "statusCode": 405,
-            "headers": {
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps({"error": "Only POST requests allowed"})
-        }
-
     if 'body' in event and isinstance(event['body'], str):
         event = json.loads(event['body'])
     elif 'body' in event and isinstance(event['body'], dict):
