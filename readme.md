@@ -48,7 +48,7 @@ A serverless data pipeline for scraping, processing, and serving rental listings
 ## Architecture Overview
 
 ```text
-Scraper (Local: scrape.py) → S3 (CSV) → Lambda Trigger (update_db.py) → SQL Database → API Lambda (lambda_api.py) → Front-end UI
+Scraper (Local: scrape) → S3 (CSV) → Lambda Trigger (update_db) → SQL Database → API Lambda (lambda) → Front-end UI
 ```
 
 ---
