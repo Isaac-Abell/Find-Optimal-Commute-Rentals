@@ -136,10 +136,10 @@ def lambda_handler(event, context):
     closest_city, min_distance = nearest_region(user_lat, user_lon)
 
     if min_distance > MAX_DISTANCE_KM:
-        print(f"User is too far from any city center (min distance: {min_distance} km).")
+        print(f"Address is too far from any city center (min distance: {min_distance} km).")
         return {
             "statusCode": 400,
-            "body": json.dumps({"error": "User is too far from supported city centers."})
+            "body": json.dumps({"error": "Address is too far from supported city centers."})
         }
 
     try:
@@ -160,6 +160,7 @@ def lambda_handler(event, context):
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
+        print(f"Error processing listings: {e}")
         return {
             "statusCode": 400,
             "body": json.dumps({"error": f"Failed to process listings"})
