@@ -35,7 +35,7 @@ def get_listings(user_lat, user_lon, closest_city, filters, sort_by='list_price'
 
     # Base query: no distance computation unless sorting by distance
     query = select(listings).where(listings.c.region == closest_city)
-
+    print(filters)
     # Apply optional filters
     if "min_price" in filters:
         query = query.where(listings.c.list_price >= filters["min_price"])
