@@ -35,7 +35,6 @@ def lambda_handler(event, context):
                 index=False
             )
             
-            # Add primary key constraint safely
             conn.execute(text("ALTER TABLE public.listings ADD PRIMARY KEY (id);"))
             
         print(f"Database table 'listings' replaced with {len(df)} rental listings.")

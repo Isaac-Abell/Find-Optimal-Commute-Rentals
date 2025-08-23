@@ -19,8 +19,6 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
         bool: True if data was successfully scraped and saved, False otherwise.
     """
     all_properties = []
-    
-    # Instantiate the S3 client, which will automatically use your local credentials
     s3_client = boto3.client('s3', region_name=region_name)
 
     for city in CITY_CENTERS.keys():
@@ -35,51 +33,55 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
             if df.empty:
                 print(f"No listings returned for {city}")
                 continue
-                
+
+            # Remove rows missing latitude or longitude
             df = df.dropna(subset=["latitude", "longitude"])
             if df.empty:
                 print(f"No valid coordinates for {city}")
                 continue
-            
+
+            # Compute region and distance
             df['region'], df['distance_to_city'] = zip(*df.apply(
                 lambda row: nearest_region(row['latitude'], row['longitude']), axis=1
             ))
-            
+
+            # Filter by max distance
             df = df[df['distance_to_city'] <= MAX_DISTANCE_MILES]
             if df.empty:
                 print(f"No listings within {MAX_DISTANCE_MILES} miles for {city}")
                 continue
-            
+
             df['last_updated'] = datetime.utcnow()
-            
-            # --- Fill NaN bathrooms with 0 ---
-            for col in ['full_baths', 'half_baths']:
-                if col in df.columns:
-                    df[col] = df[col].fillna(0)
-            
             all_properties.append(df)
             print(f"Scraped {len(df)} listings for {city}")
-            
+
         except Exception as e:
             print(f"Failed to scrape {city}: {e}")
     
     if not all_properties:
         print("No data scraped. Aborting S3 upload.")
         return False
-        
+
+    # Combine all city data
     combined_df = pd.concat(all_properties, ignore_index=True)
-    
+
+    # Add sequential ID
+    combined_df = combined_df.assign(id=range(1, len(combined_df) + 1))
+
+    # Final columns to include (only those that exist in the DataFrame)
     desired_columns = [
-        'property_url', 'latitude', 'longitude', 'beds', 'full_baths',
+        'id', 'property_url', 'latitude', 'longitude', 'beds', 'full_baths',
         'half_baths', 'list_price', 'formatted_address', 'city', 'region'
     ]
-    filtered_df = combined_df[[col for col in desired_columns if col in combined_df.columns]]
-    filtered_df = filtered_df.assign(id=range(1, len(filtered_df) + 1))
     
-    # Use an in-memory buffer to upload to S3
+    # Drop rows missing essential columns
+    combined_df = combined_df.dropna(subset=desired_columns)
+    filtered_df = combined_df[[col for col in desired_columns if col in combined_df.columns]]
+
+    # Convert to CSV and upload to S3
     csv_buffer = StringIO()
     filtered_df.to_csv(csv_buffer, index=False)
-    
+
     try:
         s3_client.put_object(
             Bucket=s3_bucket,

@@ -50,16 +50,13 @@ jobs:
 
       - name: Retrieve Secrets and Update Lambda Environment
         run: |
-          # Get the secret string from Secrets Manager and parse it as JSON
           SECRET_JSON=$(aws secretsmanager get-secret-value \
             --secret-id ${{ env.SECRETS_MANAGER_NAME }} \
             --query SecretString \
             --output text)
 
-          # Use a tool like `jq` to create the --environment argument
           ENV_VARS=$(echo "$SECRET_JSON" | jq -c '{"Variables": .}')
 
-          # Update the Lambda function's configuration with the environment variables
           aws lambda update-function-configuration \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --environment "$ENV_VARS" \
