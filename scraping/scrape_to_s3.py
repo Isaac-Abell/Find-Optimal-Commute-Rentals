@@ -27,7 +27,7 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
             df = scrape_property(
                 location=city,
                 listing_type="for_rent",
-                past_days=7
+                past_days=30
             )
             
             if df.empty:
@@ -39,6 +39,13 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
             if df.empty:
                 print(f"No valid coordinates for {city}")
                 continue
+
+            # Fill NaNs for full_baths and half_baths with 0
+            # Fill NaNs for full_baths and half_baths with 0 and ensure numeric type
+            if 'full_baths' in df.columns:
+                df['full_baths'] = pd.to_numeric(df['full_baths'], errors='coerce').fillna(0).astype(int)
+            if 'half_baths' in df.columns:
+                df['half_baths'] = pd.to_numeric(df['half_baths'], errors='coerce').fillna(0).astype(int)
 
             # Compute region and distance
             df['region'], df['distance_to_city'] = zip(*df.apply(
@@ -74,8 +81,10 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
         'half_baths', 'list_price', 'formatted_address', 'city', 'region', 'primary_photo'
     ]
     
-    # Drop rows missing essential columns
-    combined_df = combined_df.dropna(subset=desired_columns)
+    # Drop rows missing essential columns (but keep full_baths and half_baths after fillna)
+    essential_columns = [col for col in desired_columns if col not in ('full_baths', 'half_baths')]
+    combined_df = combined_df.dropna(subset=essential_columns)
+
     filtered_df = combined_df[[col for col in desired_columns if col in combined_df.columns]]
 
     # Convert to CSV and upload to S3
