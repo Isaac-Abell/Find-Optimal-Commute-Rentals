@@ -162,6 +162,13 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Error processing listings: {e}")
+
+        if "Transit route not found" in str(e):
+                return {
+                    "statusCode": 404,
+                    "body": json.dumps({"error": "Transit route not found"})
+                }
+
         return {
             "statusCode": 400,
             "body": json.dumps({"error": f"Failed to process listings"})
