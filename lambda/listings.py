@@ -155,9 +155,19 @@ def lambda_handler(event, context):
         df['commute_minutes'] = df['commute_seconds'] / 60
 
         # --- Step 5: Prepare JSON response ---
+        df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
+
+        df.dropna(subset=['commute_seconds'], inplace=True)
+
+        if df.empty:
+            raise ValueError("Transit routes not found.")
+
+        df['commute_minutes'] = df['commute_seconds'] / 60
+
         columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
                 'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
                 'distance_kilometers', 'commute_minutes', 'primary_photo']
+                
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
