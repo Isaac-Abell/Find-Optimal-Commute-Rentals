@@ -53,7 +53,9 @@ async def compute_commute_times(origins_coords, destination_coord, travel_type="
         List of commute durations in seconds, one per origin, or None for any failed/invalid routes.
     """
     today = datetime.date.today()
-    arrival_time_str = f"{today.year}-{today.month}-{today.day} 09:00:00"
+    today = datetime.date.today()
+    tomorrow = today + datetime.timedelta(days=1)
+    arrival_time_str = f"{tomorrow.year}-{tomorrow.month}-{tomorrow.day} 09:00:00"
     arrival_datetime = datetime.datetime.strptime(arrival_time_str, "%Y-%m-%d %H:%M:%S")
     arrival_timestamp = int(arrival_datetime.timestamp())
 
