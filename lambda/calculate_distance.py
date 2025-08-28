@@ -1,6 +1,5 @@
 import requests
 import json
-import time
 import datetime
 from geopy.distance import geodesic
 from config import CITY_CENTERS, GOOGLE_API_KEY
@@ -19,6 +18,7 @@ def nearest_region(lat, lon):
 def geodesic_distance(lat1, lon1, lat2, lon2):
     """Compute the geodesic distance between two points (in kilometers)."""
     return geodesic((lat1, lon1), (lat2, lon2)).km
+
 def compute_commute_times(origins_coords, destination_coord, travel_type="WALK"):
     """Compute commute times for multiple origins to one destination using Google APIs."""
 
