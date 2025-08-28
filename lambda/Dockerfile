@@ -7,6 +7,7 @@ COPY lambda/requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy Lambda code
-COPY lambda/ . 
+COPY lambda/ .
+COPY config/ config/
 
-CMD ["listings.lambda_handler"]
+CMD ["lambda_handler.lambda_handler"]

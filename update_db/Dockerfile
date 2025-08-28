@@ -9,5 +9,6 @@ RUN pip install -r requirements.txt
 
 # Copy Lambda code
 COPY update_db/ .
+COPY config/env.py config/
 
 CMD ["rental_listings_updater.lambda_handler"]

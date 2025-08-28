@@ -1,5 +1,5 @@
 from geopy.distance import geodesic
-from config import CITY_CENTERS
+from config.constants import CITY_CENTERS
 
 def nearest_region(lat, lon):
     """Finds the closest city center to a given latitude and longitude, and distance in kilometers."""

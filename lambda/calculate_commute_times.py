@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
-from datetime import datetime, date, time as dtime, timedelta
-from config import GOOGLE_API_KEY
+from config.env import GOOGLE_API_KEY
+from utils.time_utils import default_arrival_timestamp
 
 async def _fetch_commute_time(session, origin, params):
     """
@@ -27,14 +27,6 @@ async def compute_commute_times(origins_coords, destination_coord, travel_type="
     using Distance Matrix API.
     Returns a list of durations in seconds (None if unavailable).
     """
-    today = date.today()
-    arrival_datetime = datetime.combine(today, dtime(hour=9))
-
-    # If it's already past 9:00 AM today, set it to tomorrow 9:00 AM
-    if datetime.now() > arrival_datetime:
-        arrival_datetime += timedelta(days=1)
-
-    arrival_timestamp = int(arrival_datetime.timestamp())
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -47,8 +39,9 @@ async def compute_commute_times(origins_coords, destination_coord, travel_type="
             }
 
             # Required for transit mode
-            if travel_type == "transit" or travel_type == "driving":
-                params["arrival_time"] = arrival_timestamp
+            if travel_type in ["transit", "driving"]:
+                params["arrival_time"] = default_arrival_timestamp()
+
 
             tasks.append(_fetch_commute_time(session, origin, params))
 
