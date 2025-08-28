@@ -1,136 +1,114 @@
-import googlemaps
-import json
+"""
+listings.py
+-----------
+Fetches property listings, computes commute times, and formats the results for output.
+"""
+
 import asyncio
 from datetime import datetime, date, time as dtime, timedelta
-from config import MAX_DISTANCE_KM
 from db import get_listings
-from calculate_distance import nearest_region
 from calculate_commute_times import compute_commute_times
-from check_inputs import check_inputs
-from config import GOOGLE_API_KEY
 
-def lambda_handler(event, context):
+
+def get_listings_with_commute(user_coords, closest_city, filters, sort_by, ascending,
+                              page, page_size, commute_type):
     """
-    AWS Lambda handler to fetch listings near a user's address, apply filters, 
-    compute distances and commute times, and return paginated JSON results.
+    Fetch listings, compute commute times, and return formatted data.
 
-    Parameters:
-    event (dict): Dictionary containing keys:
-        - user_address (str): Address to geocode.
-        - commute_type (str, optional): Travel mode ('walking', 'driving', etc.).
-        - page (int, optional): Page number for pagination (default 1).
-        - page_size (int, optional): Number of listings per page (default 20).
-        - filters (dict, optional): Filtering options for price, beds, baths.
-        - sort_by (str, optional): Column to sort by (default 'list_price').
-        - ascending (bool, optional): Sort order (default True).
+    Args:
+        user_coords (tuple): (latitude, longitude) of the user.
+        closest_city (str): Closest supported city.
+        filters (dict): Filter parameters for listings.
+        sort_by (str): Column to sort by.
+        ascending (bool): Sort order.
+        page (int): Current page.
+        page_size (int): Listings per page.
+        commute_type (str): Travel mode ('DRIVING', 'TRANSIT', 'WALKING', etc.).
 
     Returns:
-        dict: JSON-serializable dictionary containing:
-            - page, page_size, total_listings, results (list of dicts)
+        (list, int): Formatted listing data and total listing count.
     """
-    try:
-        validated = check_inputs(event)
-    except ValueError as e:
-        print(f"Input validation error: {e}")
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": str(e)})
-        }
-    user_address = validated['user_address']
-    commute_type = validated['commute_type']
-    page = validated['page']
-    page_size = validated['page_size']
-    filters = validated['filters']
-    sort_by = validated['sort_by']
-    ascending = validated['ascending']
+    df = get_listings(user_coords[0], user_coords[1], closest_city,
+                      filters, sort_by, ascending, page, page_size)
 
-    # --- Step 1: Geocode user address ---
-    gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
-    try:
-        geocode_result = gmaps.geocode(user_address)
-        user_location = geocode_result[0]['geometry']['location']
-        user_lat, user_lon = user_location['lat'], user_location['lng']
-    except Exception as e:
-        print(f"Failed to geocode address: {e}")
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": f"Failed to find address: {user_address}"})
-        }
+    if df.empty:
+        return [], 0
 
-    # --- Step 2: Determine nearest city/region ---
-    closest_city, min_distance = nearest_region(user_lat, user_lon)
+    df = add_commute_data(df, user_coords, commute_type)
+    results = format_listings(df, user_coords, commute_type)
 
-    if min_distance > MAX_DISTANCE_KM:
-        print(f"Address is too far from any city center (min distance: {min_distance} km).")
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Address is too far from supported city centers."})
-        }
+    return results, len(df)
 
-    try:
-        # --- Step 3: Fetch listings ---
-        df = get_listings(user_lat, user_lon, closest_city, filters, sort_by, ascending, page, page_size)
-        if df.empty:
-            return {"results": [], "total_listings": 0}
 
-        # --- Step 4: Compute commute times for returned listings only ---
-        origins_coords = list(zip(df['latitude'], df['longitude']))
-        
-        commute_times = asyncio.run(compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type))
+def add_commute_data(df, user_coords, travel_type: str):
+    """
+    Add commute times to a DataFrame of listings.
 
-        df['commute_seconds'] = commute_times
-        df['commute_minutes'] = df['commute_seconds'] / 60
+    Args:
+        df (DataFrame): Listings data.
+        user_coords (tuple): (latitude, longitude) of the user.
+        travel_type (str): Travel mode.
 
-        df.dropna(subset=['commute_seconds'], inplace=True)
+    Returns:
+        DataFrame: Updated with commute times.
+    """
+    origins_coords = list(zip(df['latitude'], df['longitude']))
+    commute_times = asyncio.run(compute_commute_times(origins_coords, user_coords, travel_type=travel_type))
 
-        arrival_time_param = ""
-        if commute_type.upper() in ["DRIVING", "TRANSIT"]:
-            today = date.today()
-            arrival_datetime = datetime.combine(today, dtime(hour=9))
+    df['commute_seconds'] = commute_times
+    df.dropna(subset=['commute_seconds'], inplace=True)
+    df['commute_minutes'] = df['commute_seconds'] / 60
+    return df
 
-            # If it's already past 9:00 AM today, set it to tomorrow 9:00 AM
-            if datetime.now() > arrival_datetime:
-                arrival_datetime += timedelta(days=1)
 
-            arrival_timestamp = int(arrival_datetime.timestamp())
-            arrival_time_param = f"&arrival_time={arrival_timestamp}"
+def format_listings(df, user_coords, commute_type: str):
+    """
+    Format listings with commute URLs and selected columns.
 
-        df['commute_url'] = df.apply(
-            lambda row: (
-                f"https://www.google.com/maps/dir/?api=1"
-                f"&origin={row['latitude']},{row['longitude']}"
-                f"&destination={user_lat},{user_lon}"
-                f"&travelmode={commute_type.lower()}"
-                f"{arrival_time_param}"
-            ),
-            axis=1
-        )
+    Args:
+        df (DataFrame): Listings data.
+        user_coords (tuple): (latitude, longitude) of the user.
+        commute_type (str): Travel mode.
 
-        if df.empty:
-            raise ValueError("Transit routes not found.")
+    Returns:
+        list: List of dictionaries for JSON output.
+    """
+    arrival_param = get_arrival_time_param(commute_type)
+    user_lat, user_lon = user_coords
 
-        columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
-                    'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-                    'distance_kilometers', 'commute_minutes', 'primary_photo', 'commute_url']
+    df['commute_url'] = df.apply(
+        lambda row: (
+            f"https://www.google.com/maps/dir/?api=1"
+            f"&origin={row['latitude']},{row['longitude']}"
+            f"&destination={user_lat},{user_lon}"
+            f"&travelmode={commute_type.lower()}"
+            f"{arrival_param}"
+        ),
+        axis=1
+    )
 
-        results = df[columns].to_dict(orient="records")
+    columns = [
+        'formatted_address', 'city', 'region', 'list_price', 'beds',
+        'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
+        'distance_kilometers', 'commute_minutes', 'primary_photo', 'commute_url'
+    ]
+    return df[columns].to_dict(orient="records")
 
-    except Exception as e:
-        print(f"Error processing listings: {e}")
-        if "Transit route not found" in str(e):
-            return {
-                "statusCode": 404,
-                "body": json.dumps({"error": "Transit route not found"})
-            }
 
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Failed to process listings"})
-        }
+def get_arrival_time_param(commute_type: str) -> str:
+    """
+    Generate a Google Maps arrival_time parameter if applicable.
 
-    return {
-        "page": page,
-        "page_size": page_size,
-        "total_listings": len(df),
-        "results": results
-    }
+    Args:
+        commute_type (str): Travel mode.
+
+    Returns:
+        str: Query string for arrival_time.
+    """
+    if commute_type.upper() not in ["DRIVING", "TRANSIT"]:
+        return ""
+    today = date.today()
+    arrival_datetime = datetime.combine(today, dtime(hour=9))
+    if datetime.now() > arrival_datetime:
+        arrival_datetime += timedelta(days=1)
+    return f"&arrival_time={int(arrival_datetime.timestamp())}"
