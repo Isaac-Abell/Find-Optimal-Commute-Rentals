@@ -82,6 +82,16 @@ def lambda_handler(event, context):
 
         df.dropna(subset=['commute_seconds'], inplace=True)
 
+        df['commute_url'] = df.apply(
+            lambda row: (
+                f"https://www.google.com/maps/dir/?api=1"
+                f"&origin={row['latitude']},{row['longitude']}"
+                f"&destination={user_lat},{user_lon}"
+                f"&travelmode={commute_type.lower()}"
+            ),
+            axis=1
+        )
+
         if df.empty:
             raise ValueError("Transit routes not found.")
 
