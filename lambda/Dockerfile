@@ -10,4 +10,4 @@ RUN pip install -r requirements.txt
 COPY lambda/ .
 COPY config/ config/
 
-CMD ["listings.lambda_handler"]
+CMD ["lambda_handler.lambda_handler"]
