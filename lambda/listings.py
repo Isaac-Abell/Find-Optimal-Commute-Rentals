@@ -1,6 +1,7 @@
 import googlemaps
 import json
 import asyncio
+from datetime import datetime, date, time as dtime, timedelta
 from config import MAX_DISTANCE_KM
 from db import get_listings
 from calculate_distance import nearest_region
@@ -82,12 +83,25 @@ def lambda_handler(event, context):
 
         df.dropna(subset=['commute_seconds'], inplace=True)
 
+        arrival_time_param = ""
+        if commute_type.upper() in ["DRIVING", "TRANSIT"]:
+            today = date.today()
+            arrival_datetime = datetime.combine(today, dtime(hour=9))
+
+            # If it's already past 9:00 AM today, set it to tomorrow 9:00 AM
+            if datetime.now() > arrival_datetime:
+                arrival_datetime += timedelta(days=1)
+
+            arrival_timestamp = int(arrival_datetime.timestamp())
+            arrival_time_param = f"&arrival_time={arrival_timestamp}"
+
         df['commute_url'] = df.apply(
             lambda row: (
                 f"https://www.google.com/maps/dir/?api=1"
                 f"&origin={row['latitude']},{row['longitude']}"
                 f"&destination={user_lat},{user_lon}"
                 f"&travelmode={commute_type.lower()}"
+                f"{arrival_time_param}"
             ),
             axis=1
         )

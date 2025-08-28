@@ -1,6 +1,6 @@
 import aiohttp
 import asyncio
-import datetime
+from datetime import datetime, date, time as dtime, timedelta
 from config import GOOGLE_API_KEY
 
 async def _fetch_commute_time(session, origin, params):
@@ -27,8 +27,13 @@ async def compute_commute_times(origins_coords, destination_coord, travel_type="
     using Distance Matrix API.
     Returns a list of durations in seconds (None if unavailable).
     """
-    today = datetime.date.today()
-    arrival_datetime = datetime.datetime.combine(today, datetime.time(hour=9))
+    today = date.today()
+    arrival_datetime = datetime.combine(today, dtime(hour=9))
+
+    # If it's already past 9:00 AM today, set it to tomorrow 9:00 AM
+    if datetime.now() > arrival_datetime:
+        arrival_datetime += timedelta(days=1)
+
     arrival_timestamp = int(arrival_datetime.timestamp())
 
     async with aiohttp.ClientSession() as session:
