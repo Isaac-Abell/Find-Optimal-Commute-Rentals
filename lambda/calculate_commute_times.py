@@ -3,44 +3,43 @@ import asyncio
 import datetime
 from config import GOOGLE_API_KEY
 
-async def _fetch_commute_time(session, url, origin, destination, mode_param, arrival_timestamp):
+
+async def _fetch_commute_time(session, origin, destination, url, params):
     """
-    Retrieves travel time for a single origin-destination pair using a specified URL.
-    
+    Retrieves travel time for a single origin-destination pair using a specified API endpoint.
+
+    This function supports both the Google Directions API (for transit) and the
+    Distance Matrix API (for driving, walking, or bicycling). It handles errors
+    gracefully and returns None if the request fails or no route is found.
+
     Args:
         session: An active aiohttp ClientSession.
-        url: The API endpoint URL to use.
         origin: Tuple of (latitude, longitude) for the origin point.
         destination: Tuple of (latitude, longitude) for the destination point.
-        mode_param: The travel mode, correctly cased for the API.
-        arrival_timestamp: Desired arrival time as a UNIX timestamp.
-        
+        url: The API endpoint URL to use.
+        params: Dictionary of query parameters to send with the request, 
+                including API key, mode, and arrival_time.
+
     Returns:
-        Travel duration in seconds, or None if the request failed or no route was found.
+        int or None: Travel duration in seconds if available, or None if no valid route is found.
     """
-    params = {
-        "origin": f"{origin[0]},{origin[1]}",
-        "destination": f"{destination[0]},{destination[1]}",
-        "mode": mode_param,
-        "arrival_time": arrival_timestamp,
-        "key": GOOGLE_API_KEY
-    }
-    
     try:
         async with session.get(url, params=params) as resp:
             data = await resp.json()
             if data.get("status") == "OK":
-                if "distancematrix" in url:
+                if "routes" in data:  # Transit (Directions API)
+                    return data["routes"][0]["legs"][0]["duration"]["value"]
+                elif "rows" in data:  # Driving/walking/bicycling (Distance Matrix API)
                     element = data["rows"][0]["elements"][0]
                     if element.get("status") == "OK":
                         return element["duration"]["value"]
-                elif "directions" in url:
-                    return data["routes"][0]["legs"][0]["duration"]["value"]
             return None
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] Failed fetching commute for {origin}: {e}")
         return None
 
-async def compute_commute_times(origins_coords, destination_coord, travel_type="WALK"):
+
+async def compute_commute_times(origins_coords, destination_coord, travel_type="WALKING"):
     """
     Compute estimated commute times for multiple origins using concurrent requests for each origin.
 
@@ -53,25 +52,33 @@ async def compute_commute_times(origins_coords, destination_coord, travel_type="
         List of commute durations in seconds, one per origin, or None for any failed/invalid routes.
     """
     today = datetime.date.today()
-    today = datetime.date.today()
-    tomorrow = today + datetime.timedelta(days=1)
-    arrival_time_str = f"{tomorrow.year}-{tomorrow.month}-{tomorrow.day} 09:00:00"
+    arrival_time_str = f"{today.year}-{today.month}-{today.day} 09:00:00"
     arrival_datetime = datetime.datetime.strptime(arrival_time_str, "%Y-%m-%d %H:%M:%S")
     arrival_timestamp = int(arrival_datetime.timestamp())
 
-    directions_url = "https://maps.googleapis.com/maps/api/directions/json"
-    distance_matrix_url = "https://maps.googleapis.com/maps/api/distancematrix/json"
-    
-    if travel_type.upper() == "TRANSIT":
-        url = directions_url
-        mode_param = "transit"
-    else:
-        url = distance_matrix_url
-        mode_param = travel_type.upper()
-    
     async with aiohttp.ClientSession() as session:
-        tasks = [
-            _fetch_commute_time(session, url, origin, destination_coord, mode_param, arrival_timestamp)
-            for origin in origins_coords
-        ]
-        return await asyncio.gather(*tasks)
+        tasks = []
+        for origin in origins_coords:
+            if travel_type.upper() == "TRANSIT":
+                url = "https://maps.googleapis.com/maps/api/directions/json"
+                params = {
+                    "origin": f"{origin[0]},{origin[1]}",
+                    "destination": f"{destination_coord[0]},{destination_coord[1]}",
+                    "mode": "transit",
+                    "arrival_time": arrival_timestamp,
+                    "key": GOOGLE_API_KEY
+                }
+            else:
+                url = "https://maps.googleapis.com/maps/api/distancematrix/json"
+                params = {
+                    "origins": f"{origin[0]},{origin[1]}",
+                    "destinations": f"{destination_coord[0]},{destination_coord[1]}",
+                    "mode": travel_type.lower(),
+                    "arrival_time": arrival_timestamp,
+                    "key": GOOGLE_API_KEY
+                }
+
+            tasks.append(_fetch_commute_time(session, origin, destination_coord, url, params))
+
+        results = await asyncio.gather(*tasks)
+        return results
