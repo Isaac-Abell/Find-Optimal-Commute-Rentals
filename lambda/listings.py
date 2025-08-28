@@ -97,8 +97,8 @@ def lambda_handler(event, context):
 
         columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
                     'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-                    'distance_kilometers', 'commute_minutes', 'primary_photo']
-                    
+                    'distance_kilometers', 'commute_minutes', 'primary_photo', 'commute_url']
+
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
