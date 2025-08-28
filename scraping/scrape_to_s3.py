@@ -1,3 +1,4 @@
+from xml.sax.handler import all_properties
 import pandas as pd
 import boto3
 from datetime import datetime
@@ -71,6 +72,9 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
 
     # Combine all city data
     combined_df = pd.concat(all_properties, ignore_index=True)
+
+    # Remove duplicate listings based on property URL
+    combined_df = combined_df.drop_duplicates(subset='property_url', keep='first')
 
     # Add sequential ID
     combined_df = combined_df.assign(id=range(1, len(combined_df) + 1))

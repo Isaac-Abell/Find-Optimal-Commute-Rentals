@@ -1,5 +1,5 @@
 CITY_CENTERS = {
-    "San Francisco Bay Area, CA": (37.7749, -122.4194),
+    "San Francisco Bay Area, CA": (37.6046,-122.1960),
     "New York, NY": (40.7128, -74.0060),
     "Seattle, WA": (47.6062, -122.3321),
     "Austin, TX": (30.2672, -97.7431),
