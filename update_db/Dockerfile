@@ -7,8 +7,7 @@ WORKDIR /var/task
 COPY update_db/requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copy the Lambda source code
+# Copy Lambda code
 COPY update_db/ .
 
-# Set the CMD to handler.
 CMD ["rental_listings_updater.lambda_handler"]

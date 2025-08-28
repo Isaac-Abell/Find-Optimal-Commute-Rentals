@@ -1,5 +1,6 @@
 import googlemaps
 import json
+import asyncio
 from config import MAX_DISTANCE_KM
 from db import get_listings
 from calculate_distance import nearest_region
@@ -11,16 +12,16 @@ def lambda_handler(event, context):
     """
     AWS Lambda handler to fetch listings near a user's address, apply filters, 
     compute distances and commute times, and return paginated JSON results.
-
+    
     Parameters:
-        event (dict): Dictionary containing keys:
-            - user_address (str): Address to geocode.
-            - commute_type (str, optional): Travel mode ('WALK', 'DRIVE', etc.).
-            - page (int, optional): Page number for pagination (default 1).
-            - page_size (int, optional): Number of listings per page (default 20).
-            - filters (dict, optional): Filtering options for price, beds, baths.
-            - sort_by (str, optional): Column to sort by (default 'list_price').
-            - ascending (bool, optional): Sort order (default True).
+    event (dict): Dictionary containing keys:
+        - user_address (str): Address to geocode.
+        - commute_type (str, optional): Travel mode ('WALK', 'DRIVE', etc.).
+        - page (int, optional): Page number for pagination (default 1).
+        - page_size (int, optional): Number of listings per page (default 20).
+        - filters (dict, optional): Filtering options for price, beds, baths.
+        - sort_by (str, optional): Column to sort by (default 'list_price').
+        - ascending (bool, optional): Sort order (default True).
 
     Returns:
         dict: JSON-serializable dictionary containing:
@@ -73,37 +74,34 @@ def lambda_handler(event, context):
 
         # --- Step 4: Compute commute times for returned listings only ---
         origins_coords = list(zip(df['latitude'], df['longitude']))
-        df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
-        df['commute_minutes'] = df['commute_seconds'] / 60
+        
+        commute_times = asyncio.run(compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type))
 
-        # --- Step 5: Prepare JSON response ---
-        df['commute_seconds'] = compute_commute_times(origins_coords, (user_lat, user_lon), travel_type=commute_type)
+        df['commute_seconds'] = commute_times
+        df['commute_minutes'] = df['commute_seconds'] / 60
 
         df.dropna(subset=['commute_seconds'], inplace=True)
 
         if df.empty:
             raise ValueError("Transit routes not found.")
 
-        df['commute_minutes'] = df['commute_seconds'] / 60
-
         columns = ['formatted_address', 'city', 'region', 'list_price', 'beds',
-                'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
-                'distance_kilometers', 'commute_minutes', 'primary_photo']
-                
+                    'full_baths', 'half_baths', 'property_url', 'latitude', 'longitude',
+                    'distance_kilometers', 'commute_minutes', 'primary_photo']
+                    
         results = df[columns].to_dict(orient="records")
 
     except Exception as e:
         print(f"Error processing listings: {e}")
-
         if "Transit route not found" in str(e):
-                return {
-                    "statusCode": 404,
-                    "body": json.dumps({"error": "Transit route not found"})
-                }
+            return {
+                "statusCode": 404,
+                "body": json.dumps({"error": "Transit route not found"})
+            }
 
         return {
             "statusCode": 400,
-            "body": json.dumps({"error": f"Failed to process listings"})
+            "body": json.dumps({"error": "Failed to process listings"})
         }
 
     return {
