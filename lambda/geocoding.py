@@ -5,8 +5,9 @@ Handles geocoding of user addresses and validation against supported regions.
 """
 
 import googlemaps
-from config import MAX_DISTANCE_KM, GOOGLE_API_KEY
-from calculate_distance import nearest_region
+from config.env import GOOGLE_API_KEY
+from config.constants import MAX_DISTANCE_KM
+from utils.distance_utils import nearest_region
 
 
 def geocode_user_address(address: str) -> tuple[float, float]:

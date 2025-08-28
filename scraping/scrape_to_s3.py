@@ -1,11 +1,10 @@
-from xml.sax.handler import all_properties
 import pandas as pd
 import boto3
 from datetime import datetime
 from io import StringIO
 from homeharvest import scrape_property
-from commute import nearest_region
-from config import CITY_CENTERS, MAX_DISTANCE_KM
+from .commute import nearest_region
+from config.constants import CITY_CENTERS, MAX_DISTANCE_KM
 
 def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
     """

@@ -1,9 +1,9 @@
 import pandas as pd
 from sqlalchemy import create_engine, select, func
-from config import listings
-from calculate_distance import geodesic_distance
+from config.db_schema import listings
+from utils.distance_utils import geodesic_distance
 
-from config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT
+from config.env import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_PORT
 
 db_url = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 engine = create_engine(db_url)

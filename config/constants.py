@@ -15,4 +15,4 @@ CITY_CENTERS = {
     "Salt Lake City, UT": (40.7608, -111.8910)
 }
 
-MAX_DISTANCE_KM = 100
+MAX_DISTANCE_KM = 50

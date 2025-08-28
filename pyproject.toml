@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "commute_calculator"
+version = "0.1.0"
+description = "Commute and real estate calculator"
+authors = [
+    { name="Isaac Abell", email="isaacabell.1.0.0@gmail.com" }
+]
+dependencies = [
+    "pandas",
+    "aiohttp",
+    "googlemaps",
+    "SQLAlchemy",
+    "geopy",
+    "psycopg2-binary",
+    "boto3",
+    "homeharvest"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

@@ -5,7 +5,7 @@ Fetches property listings, computes commute times, and formats the results for o
 """
 
 import asyncio
-from datetime import datetime, date, time as dtime, timedelta
+from utils.time_utils import default_arrival_timestamp
 from db import get_listings
 from calculate_commute_times import compute_commute_times
 
@@ -107,8 +107,5 @@ def get_arrival_time_param(commute_type: str) -> str:
     """
     if commute_type.upper() not in ["DRIVING", "TRANSIT"]:
         return ""
-    today = date.today()
-    arrival_datetime = datetime.combine(today, dtime(hour=9))
-    if datetime.now() > arrival_datetime:
-        arrival_datetime += timedelta(days=1)
-    return f"&arrival_time={int(arrival_datetime.timestamp())}"
+    arrival_param = f"&arrival_time={default_arrival_timestamp()}" if commute_type.upper() in ["DRIVING","TRANSIT"] else ""
+    return arrival_param
