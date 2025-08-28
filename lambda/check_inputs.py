@@ -1,6 +1,6 @@
 import json
 
-VALID_COMMUTE_TYPES = ['DRIVE', 'BICYCLE', 'WALK', 'TRANSIT']
+VALID_COMMUTE_TYPES = ['driving', 'bicycling', 'walking', 'transit']
 VALID_SORT_BY = [
     'list_price', 'beds', 'baths', 'distance', 'commute_seconds', 'commute_time'
 ]
@@ -27,7 +27,7 @@ def check_inputs(event):
     user_address = event['user_address']
 
     # Gets and validates commute types
-    commute_type = event.get('commute_type', 'WALK').upper()
+    commute_type = event.get('commute_type', 'walking').lower()
     if commute_type not in VALID_COMMUTE_TYPES:
         raise ValueError(f"commute_type must be one of {VALID_COMMUTE_TYPES}")
 

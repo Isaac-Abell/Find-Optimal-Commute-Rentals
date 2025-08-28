@@ -12,11 +12,11 @@ def lambda_handler(event, context):
     """
     AWS Lambda handler to fetch listings near a user's address, apply filters, 
     compute distances and commute times, and return paginated JSON results.
-    
+
     Parameters:
     event (dict): Dictionary containing keys:
         - user_address (str): Address to geocode.
-        - commute_type (str, optional): Travel mode ('WALK', 'DRIVE', etc.).
+        - commute_type (str, optional): Travel mode ('walking', 'driving', etc.).
         - page (int, optional): Page number for pagination (default 1).
         - page_size (int, optional): Number of listings per page (default 20).
         - filters (dict, optional): Filtering options for price, beds, baths.
