@@ -20,7 +20,6 @@ async def _fetch_commute_time(session, origin, params):
         print(f"[ERROR] Failed fetching commute for {origin}: {e}")
         return None
 
-
 async def compute_commute_times(origins_coords, destination_coord, travel_type="walking"):
     """
     Compute commute durations from multiple origins to a single destination

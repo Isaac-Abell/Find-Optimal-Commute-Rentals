@@ -21,6 +21,7 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
     all_properties = []
     s3_client = boto3.client('s3', region_name=region_name)
 
+    # I tried using concurrency and got 403 errors
     for city in CITY_CENTERS.keys():
         print(f"Scraping listings for {city}...")
         try:
@@ -40,7 +41,6 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
                 print(f"No valid coordinates for {city}")
                 continue
 
-            # Fill NaNs for full_baths and half_baths with 0
             # Fill NaNs for full_baths and half_baths with 0 and ensure numeric type
             if 'full_baths' in df.columns:
                 df['full_baths'] = pd.to_numeric(df['full_baths'], errors='coerce').fillna(0).astype(int)
