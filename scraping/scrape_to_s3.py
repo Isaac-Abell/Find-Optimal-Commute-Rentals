@@ -28,7 +28,7 @@ def scrape_and_save_to_s3(s3_bucket, s3_key, region_name="us-east-1"):
             df = scrape_property(
                 location=city,
                 listing_type="for_rent",
-                past_days=30
+                past_days=60
             )
             
             if df.empty:
